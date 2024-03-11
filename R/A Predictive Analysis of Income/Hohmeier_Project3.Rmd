@@ -1,0 +1,327 @@
+---
+title: "Hohmeier_Project3"
+author: "Kaitlyn Hohmeier"
+date: "10/5/2020"
+output: pdf_document
+---
+  <style type="text/css">
+  
+  body{ /* Normal  */
+      font-size: 16px;
+  }
+td {  /* Table  */
+    font-size: 8px;
+}
+h1.title {
+  font-size: 38px;
+  color: DarkRed;
+}
+h1 { /* Header 1 */
+    font-size: 28px;
+  color: DarkBlue;
+}
+h2 { /* Header 2 */
+    font-size: 22px;
+  color: DarkBlue;
+}
+h3 { /* Header 3 */
+    font-size: 18px;
+  font-family: "Times New Roman", Times, serif;
+  color: DarkBlue;
+}
+code.r{ /* Code block */
+    font-size: 16px;
+}
+pre { /* Code block - determines code spacing between lines */
+    font-size: 16px;
+}
+</style>
+
+
+```{r}
+library(leaps)
+library(formatR)
+library(knitr)
+```
+
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE, comment = NA, message = FALSE)
+```
+
+```{r, echo = F}
+opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+```
+## R Markdown ##
+
+```{r}
+# Initial data read-in, without "cleaning up"
+
+init <- read.csv("C://Users//Kaitlyn//Documents//Documents - Old Laptop//College Work//3rd year Junior//Semester 1//STT 450//Project//US Census Data Sets//acs2015_census_tract_data.csv")
+```
+
+```{r}
+# Cleaning up the data
+Income <- na.omit(init)
+```
+
+### Section 4: Classification ###
+
+### Step 1: Best Subset Selection ###
+
+```{r}
+subset_data = subset(Income, select = -c(State,County,CensusTract,TotalPop,IncomeErr,IncomePerCapErr, Drive, Carpool, Transit, Walk, OtherTransp, WorkAtHome, MeanCommute, Employed, PrivateWork,PublicWork,SelfEmployed, FamilyWork,Unemployment, Citizen))
+regfit.full=regsubsets(Income~.,subset_data,nvmax=16)
+reg.summary = summary(regfit.full)
+reg.summary
+```
+
+```{r}
+#Create plots for RSS, Adjuted R-squared, Mallow's Cp, and BIC - Best Subset
+par(mfrow=c(2,2))
+#Plot RSS
+plot(reg.summary$rss,xlab="Number of Variables",ylab="RSS",type="l")
+
+#Plot Adjusted R-squared
+plot(reg.summary$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
+which.max(reg.summary$adjr2)
+points(15,reg.summary$adjr2[15], col="orange",cex=2,pch=20)
+
+#Plot Mallow's Cp
+plot(reg.summary$cp,xlab="Number of Variables",ylab="Cp",type='l')
+which.min(reg.summary$cp)
+points(14,reg.summary$cp[14],col="orange",cex=2,pch=20)
+
+#Plot BIC
+plot(reg.summary$bic,xlab="Number of Variables",ylab="BIC",type='l')
+which.min(reg.summary$bic)
+points(12,reg.summary$bic[12],col="orange",cex=2,pch=20)
+```
+
+```{r}
+#Create best model based on results of best subset selection - log (Cp)
+lm.fit1a=lm(log1p(Income)~log1p(Men) + log1p(Women) + log1p(Hispanic) + log1p(White) + log1p(Black) + log1p(Native) + log1p(Asian) + log1p(IncPerCap) + log1p(Poverty) + log1p(ChildPov) + log1p(Professional) + log1p(Office) + log1p(Construction) + log1p(Production), data=Income)
+summary(lm.fit1a)
+```
+
+```{r}
+#Create best model based on results of best subset selection - log (BIC)
+lm.fit1b=lm(log1p(Income)~log1p(Men) + log1p(Women) + log1p(Hispanic) + log1p(White) + log1p(Black) + log1p(Native) + log1p(Asian) + log1p(IncPerCap) + log1p(Poverty) + log1p(Professional) + log1p(Service) + log1p(Production), data=Income)
+summary(lm.fit1b)
+```
+
+```{r}
+#Create best model based on results of best subset selection - log (adjusted R^2)
+lm.fit1c=lm(log1p(Income)~log1p(Men) + log1p(Women) + log1p(Hispanic) + log1p(White) + log1p(Black) + log1p(Native) + log1p(Asian) + log1p(Pacific) + log1p(IncPerCap) + log1p(Poverty) + log1p(ChildPov) + log1p(Professional) + log1p(Office) + log1p(Construction) + log1p(Production), data=Income)
+summary(lm.fit1c)
+```
+
+```{r}
+#Cp
+par(mfrow=c(2,2))
+plot(lm.fit1a, col="green")
+```
+
+```{r}
+#BIC
+par(mfrow=c(2,2))
+plot(lm.fit1b, col="green")
+```
+
+```{r}
+#Adjusted R^2
+par(mfrow=c(2,2))
+plot(lm.fit1c, col="green")
+```
+
+### Step 2: Foward Stepwise Selection ###
+
+```{r}
+#Foward Stepwise Selection
+regfit.fwd=regsubsets(Income~.,data=subset_data,nvmax=16,method="forward")
+reg.summary2 = summary(regfit.fwd)
+reg.summary2
+```
+
+```{r}
+#Create plots for RSS, Adjuted R-squared, Mallow's Cp, and BIC - Foward Stepwise
+par(mfrow=c(2,2))
+#Plot RSS
+plot(reg.summary2$rss,xlab="Number of Variables",ylab="RSS",type="l")
+
+#Plot Adjusted R-squared
+plot(reg.summary2$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
+which.max(reg.summary2$adjr2)
+points(15,reg.summary2$adjr2[15], col="blue",cex=2,pch=20)
+
+#Plot Mallow's Cp
+plot(reg.summary2$cp,xlab="Number of Variables",ylab="Cp",type='l')
+which.min(reg.summary2$cp)
+points(15,reg.summary2$cp[15],col="blue",cex=2,pch=20)
+
+#Plot BIC
+plot(reg.summary2$bic,xlab="Number of Variables",ylab="BIC",type='l')
+which.min(reg.summary2$bic)
+points(11,reg.summary2$bic[11],col="blue",cex=2,pch=20)
+```
+
+```{r}
+#Create best model from forward stepwise selection - log (Cp and Adjusted R^2)
+lm.fit2a=lm(log1p(Income)~log1p(Men) + log1p(Women) + log1p(Hispanic) + log1p(White) + log1p(Black) + log1p(Native) + log1p(Asian) + log1p(Pacific) + log1p(IncPerCap) + log1p(Poverty) + log1p(ChildPov) + log1p(Professional) + log1p(Service) + log1p(Office) + log1p(Construction), data=Income)
+summary(lm.fit2a)
+```
+
+```{r}
+#Create best model from forward stepwise selection - log (BIC)
+lm.fit2b=lm(log1p(Income)~log1p(Men) + log1p(Women) + log1p(White) + log1p(Black) + log1p(Asian) + log1p(Pacific) + log1p(IncPerCap) + log1p(Poverty) + log1p(Professional) + log1p(Service) + log1p(Construction), data=Income)
+summary(lm.fit2b)
+```
+
+```{r}
+#Cp and adjusted R^2
+par(mfrow=c(2,2))
+plot(lm.fit2a, col="purple")
+```
+
+```{r}
+#BIC
+par(mfrow=c(2,2))
+plot(lm.fit2b, col="purple")
+```
+
+### Step 3: Backward Stepwise Selection ###
+```{r}
+#Backward Stepwise Selection
+regfit.bwd=regsubsets(Income~.,data=subset_data,nvmax=16,method="backward")
+reg.summary3 = summary(regfit.bwd)
+reg.summary3
+```
+
+```{r}
+#Create plots for RSS, Adjuted R-squared, Mallow's Cp, and BIC - Backward Stepwise
+par(mfrow=c(2,2))
+#Plot RSS
+plot(reg.summary3$rss,xlab="Number of Variables",ylab="RSS",type="l")
+
+#Plot Adjusted R-squared
+plot(reg.summary3$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
+which.max(reg.summary3$adjr2)
+points(15,reg.summary3$adjr2[15], col="blue",cex=2,pch=20)
+
+#Plot Mallow's Cp
+plot(reg.summary3$cp,xlab="Number of Variables",ylab="Cp",type='l')
+which.min(reg.summary3$cp)
+points(14,reg.summary3$cp[14],col="blue",cex=2,pch=20)
+
+#Plot BIC
+plot(reg.summary3$bic,xlab="Number of Variables",ylab="BIC",type='l')
+which.min(reg.summary3$bic)
+points(11,reg.summary3$bic[11],col="blue",cex=2,pch=20)
+```
+
+```{r}
+#Create best model from backward stepwise selection - log (Cp)
+lm.fit3a=lm(log1p(Income)~log1p(Men) + log1p(Women) + log1p(Hispanic) + log1p(White) + log1p(Black) + log1p(Native) + log1p(Asian) + log1p(IncPerCap) + log1p(Poverty) + log1p(ChildPov) + log1p(Professional) + log1p(Office) + log1p(Construction) + log1p(Production), data=Income)
+summary(lm.fit3a)
+```
+
+```{r}
+#Create best model from backward stepwise selection - log (BIC)
+lm.fit3b=lm(log1p(Income)~log1p(Men) + log1p(Women) + log1p(White) + log1p(Black) + log1p(Asian) + log1p(IncPerCap) + log1p(Poverty) + log1p(Professional) + log1p(Office) + log1p(Construction) + log1p(Production), data=Income)
+summary(lm.fit3b)
+```
+
+```{r}
+#Create best model from backward stepwise selection - log (adjusted R^2)
+lm.fit3c=lm(log1p(Income)~log1p(Men) + log1p(Women) + log1p(Hispanic) + log1p(White) + log1p(Black) + log1p(Native) + log1p(Asian) + log1p(Pacific) + log1p(IncPerCap) + log1p(Poverty) + log1p(ChildPov) + log1p(Professional) + log1p(Office) + log1p(Construction) + log1p(Production), data=Income)
+summary(lm.fit3c)
+```
+
+```{r}
+#Cp
+par(mfrow=c(2,2))
+plot(lm.fit3a, col="darkblue")
+```
+
+```{r}
+#BIC
+par(mfrow=c(2,2))
+plot(lm.fit3b, col="darkblue")
+```
+
+```{r}
+#Adjusted R^2
+par(mfrow=c(2,2))
+plot(lm.fit3c, col="darkblue")
+```
+
+### Step 4: Hybrid Approach ###
+```{r}
+#seqrep
+regfit.hybrid=regsubsets(Income~.,subset_data,nvmax=16,method="seqrep")
+reg.summary4 = summary(regfit.hybrid)
+reg.summary4
+```
+
+```{r}
+#Create plots for RSS, Adjuted R-squared, Mallow's Cp, and BIC - Hybrid
+par(mfrow=c(2,2))
+#Plot RSS
+plot(reg.summary4$rss,xlab="Number of Variables",ylab="RSS",type="l")
+
+#Plot Adjusted R-squared
+plot(reg.summary4$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
+which.max(reg.summary4$adjr2)
+points(15,reg.summary3$adjr2[15], col="purple",cex=2,pch=20)
+
+#Plot Mallow's Cp
+plot(reg.summary4$cp,xlab="Number of Variables",ylab="Cp",type='l')
+which.min(reg.summary4$cp)
+points(14,reg.summary3$cp[14],col="purple",cex=2,pch=20)
+
+#Plot BIC
+plot(reg.summary4$bic,xlab="Number of Variables",ylab="BIC",type='l')
+which.min(reg.summary4$bic)
+points(12,reg.summary3$bic[12],col="purple",cex=2,pch=20)
+```
+
+```{r}
+#Create best model from backward stepwise selection - log (Cp)
+lm.fit4a=lm(log1p(Income)~log1p(Men) + log1p(Women) + log1p(Hispanic) + log1p(White) + log1p(Black) + log1p(Native) + log1p(Asian) + log1p(IncPerCap) + log1p(Poverty) + log1p(ChildPov) + log1p(Professional) + log1p(Office) + log1p(Construction) + log1p(Production), data=Income)
+summary(lm.fit4a)
+```
+
+
+```{r}
+#Create best model from backward stepwise selection - log (BIC)
+lm.fit4b=lm(log1p(Income)~log1p(Men) + log1p(Women) + log1p(Hispanic) + log1p(White) + log1p(Black) + log1p(Native) + log1p(Asian) + log1p(IncPerCap) + log1p(Poverty) + log1p(Professional) + log1p(Service) + log1p(Construction) + log1p(Production), data=Income)
+summary(lm.fit4b)
+```
+
+```{r}
+#Create best model from backward stepwise selection - log (Adjusted R^2)
+lm.fit4c=lm(log1p(Income)~log1p(Men) + log1p(Women) + log1p(Hispanic) + log1p(White) + log1p(Black) + log1p(Native) + log1p(Asian) + log1p(Pacific) + log1p(IncPerCap) + log1p(Poverty) + log1p(Professional) + log1p(Service) + log1p(Construction) + log1p(Production), data=Income)
+summary(lm.fit4c)
+```
+
+
+```{r}
+#Cp
+par(mfrow=c(2,2))
+plot(lm.fit4a, col="darkgreen")
+```
+
+```{r}
+#BIC
+par(mfrow=c(2,2))
+plot(lm.fit4b, col="darkgreen")
+```
+
+```{r}
+#Adjusted R^2
+par(mfrow=c(2,2))
+plot(lm.fit4c, col="darkgreen")
+```
+
+
+

@@ -1,0 +1,1224 @@
+---
+title: "Hohmeier_Project5"
+author: "Kaitlyn Hohmeier"
+date: "11/22/2020"
+output: pdf_document
+---
+  <style type="text/css">
+  
+  body{ /* Normal  */
+      font-size: 16px;
+  }
+td {  /* Table  */
+    font-size: 8px;
+}
+h1.title {
+  font-size: 38px;
+  color: DarkRed;
+}
+h1 { /* Header 1 */
+    font-size: 28px;
+  color: DarkBlue;
+}
+h2 { /* Header 2 */
+    font-size: 22px;
+  color: DarkBlue;
+}
+h3 { /* Header 3 */
+    font-size: 18px;
+  font-family: "Times New Roman", Times, serif;
+  color: DarkBlue;
+}
+code.r{ /* Code block */
+    font-size: 16px;
+}
+pre { /* Code block - determines code spacing between lines */
+    font-size: 16px;
+}
+</style>
+
+install.packages("caret")
+install.packages("randomForest")
+install.packages("gbm")
+install.packages("FNN")
+
+```{r}
+library(MASS);
+library(ISLR);
+library(car);
+library(tidyverse);
+library(class);
+library(boot)
+library(tree)
+library(randomForest)
+library(gbm)
+```
+
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE, comment = NA, message = FALSE)
+```
+
+```{r, echo = F}
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+```
+## R Markdown ##
+
+```{r}
+# Initial data read-in, without "cleaning up"
+
+init <- read.csv("C://Users//Kaitlyn//Documents//Documents - Old Laptop//College Work//3rd year Junior//Semester 1//STT 450//Project//US Census Data Sets//acs2015_census_tract_data.csv")
+```
+
+```{r}
+# Cleaning up the data
+Income <- na.omit(init)
+```
+
+### Section 6: Resampling ###
+
+### Step 1: Classifcation ###
+### Part a. Logistic Regression###
+
+```{r}
+# First, we need to create a new factor variable from Income per Capita, based on national poverty level of $12,084 for an individual
+new_Income = Income
+levels <- ifelse(new_Income$IncPerCap <= 12082, "low", "high")
+new_Income$Income_Levels <- levels
+table(new_Income$Income_Levels)
+
+binary_levels <- ifelse(new_Income$Income_Levels=="high", 1, 0)
+new_Income$Income_Level_Binary <- binary_levels
+```
+
+```{r}
+n = 72727
+m = dim(new_Income)[2]
+```
+
+
+```{r}
+# Perform 5-fold CV on logistic regression model
+set.seed(1)
+n_fold <-5; # number of cross validations #
+folds_i <- sample(rep(1:n_fold, length.out = n)) ##without replacement
+OUT.glm=NULL
+TRUTH = NULL; OUTPUT=NULL;
+table(folds_i)
+
+start.time <- Sys.time()
+for (k in 1:n_fold)
+  {
+test.ID <- which(folds_i == k)
+#print(length(test.ID))
+train_set <- new_Income[-test.ID,] ## set up training set
+test_set <- new_Income[test.ID, ] ## set up validation set
+#print(test_set)
+
+glm.fit=glm(Income_Level_Binary~Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction, data=train_set, family=binomial)
+
+glm.probs=predict(glm.fit,test_set,type="response")
+#print(glm.probs)
+
+glm.pred=rep("low",length(test.ID))
+glm.pred[glm.probs>.5]="high"
+#print(glm.pred)
+
+table(glm.pred, test_set$Income_Levels) ## confusion table
+Accuracy=mean(glm.pred==test_set$Income_Levels) ## Prediction Accuracy
+#print(test_set$Income_Levels)
+#print(Accuracy)
+
+OUT.glm=c(OUT.glm, Accuracy)
+#print(OUT.glm)
+TRUTH = c(TRUTH, test_set$Income_Levels)
+OUTPUT= c(OUTPUT, glm.pred)
+}
+
+end.time <- Sys.time()
+time.taken_log <- end.time - start.time
+
+time.taken_log
+print(OUT.glm)
+```
+```{r}
+# Mean for logistic reg w/5-fold CV
+acc_log <- mean(OUT.glm)
+acc_log
+```
+```{r}
+#Standard deviation
+sd_log <- sd(OUT.glm)
+sd_log
+```
+```{r}
+boxplot(OUT.glm,col="darkblue", ylab = "Accuracy", xlab = "Boxplot of Accuracy Measurements for 5-Fold CV on Logistic Regression")
+```
+```{r}
+# Confusion table for 5-fold CV w/log reg
+Confusion=table(OUTPUT, TRUTH);
+print(Confusion)
+Sensitivity_log = Confusion[1,1]/(Confusion[1,1]+Confusion[2,1]); Sensitivity_log
+Specificity_log = Confusion[2,2]/(Confusion[2,2]+Confusion[1,2]); Specificity_log
+```
+### Part b. LDA###
+```{r}
+# 5-fold CV on LDA
+set.seed(1)
+
+require(caret)
+folds <- createFolds(new_Income$Income_Level_Binary, k = 5, list = TRUE, returnTrain = FALSE)
+OUT.LDA=NULL;
+TRUTH = NULL; OUTPUT=NULL;
+
+start.time <- Sys.time()
+for (k in 1:n_fold)
+{
+test.ID <- folds[[k]]
+train_set <- new_Income[-test.ID, ]
+test_set <- new_Income[test.ID, ]
+
+lda.fit=lda(Income_Level_Binary~Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction, data=train_set)
+
+lda.pred=predict(lda.fit, test_set)
+lda.class=lda.pred$class
+#print(lda.class)
+#table(lda.class,test_set[,5])
+
+Accuracy=mean(lda.class==test_set$Income_Level_Binary)
+OUT.LDA=c(OUT.LDA, Accuracy)
+TRUTH = c(TRUTH, test_set$Income_Level_Binary)
+OUTPUT= c(OUTPUT, lda.class)
+#print(OUTPUT)
+}
+
+end.time <- Sys.time()
+time.taken_lda <- end.time - start.time
+
+time.taken_lda
+print(OUT.LDA)
+```
+```{r}
+acc_lda <- mean(OUT.LDA)
+acc_lda
+```
+```{r}
+sd_lda <- sd(OUT.LDA)
+sd_lda
+```
+```{r}
+boxplot(OUT.LDA,col="aquamarine",ylab = "Accuracy", xlab = "Boxplot of Accuracy Measurements for 5-Fold CV on LDA")
+```
+
+```{r}
+# Create confusion matrix for LDA
+Confusion_lda = table(OUTPUT, TRUTH)
+rownames(Confusion_lda) = c("Low","High")
+colnames(Confusion_lda) = c("Low", "High")
+Confusion_lda
+```
+```{r}
+# Calculate Sensitivity and specificity for LDA confusion matrix
+Sensitivity_lda= Confusion_lda[2,2]/(Confusion_lda[1,2]+Confusion_lda[2,2]); Sensitivity_lda
+Specificity_lda= Confusion_lda[1,1]/(Confusion_lda[1,1]+Confusion_lda[2,1]); Specificity_lda
+```
+### Part c. QDA###
+```{r}
+# 5-fold CV on QDA
+set.seed(1)
+
+require(caret)
+folds <- createFolds(new_Income$Income_Level_Binary, k = 5, list = TRUE, returnTrain = FALSE)
+OUT.QDA=NULL;
+TRUTH = NULL; OUTPUT=NULL;
+
+start.time <- Sys.time()
+for (k in 1:n_fold)
+{
+test.ID <- folds[[k]]
+train_set <- new_Income[-test.ID, ]
+test_set <- new_Income[test.ID, ]
+
+qda.fit=qda(Income_Level_Binary~Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction, data=train_set)
+
+qda.pred=predict(qda.fit, test_set)
+qda.class=qda.pred$class
+#print(lda.class)
+#table(lda.class,test_set[,5])
+
+Accuracy=mean(qda.class==test_set$Income_Level_Binary)
+OUT.QDA=c(OUT.QDA, Accuracy)
+TRUTH = c(TRUTH, test_set$Income_Level_Binary)
+OUTPUT= c(OUTPUT, qda.class)
+#print(OUTPUT)
+}
+
+end.time <- Sys.time()
+time.taken_qda <- end.time - start.time
+
+time.taken_qda
+print(OUT.QDA)
+```
+```{r}
+acc_qda <- mean(OUT.QDA)
+acc_qda
+```
+
+```{r}
+sd_qda <- sd(OUT.QDA)
+sd_qda
+```
+
+```{r}
+boxplot(OUT.QDA,col="darkgreen",ylab = "Accuracy", xlab = "Boxplot of Accuracy Measurements for 5-Fold CV on QDA")
+```
+
+```{r}
+# Create confusion matrix for LDA
+Confusion_qda = table(OUTPUT, TRUTH)
+rownames(Confusion_qda) = c("Low","High")
+colnames(Confusion_qda) = c("Low", "High")
+Confusion_qda
+```
+
+```{r}
+# Calculate Sensitivity and specificity for LDA confusion matrix
+Sensitivity_qda= Confusion_qda[2,2]/(Confusion_qda[1,2]+Confusion_qda[2,2]); Sensitivity_qda
+Specificity_qda= Confusion_qda[1,1]/(Confusion_qda[1,1]+Confusion_qda[2,1]); Specificity_qda
+```
+###Part d. KNN ###
+
+```{r}
+# Finding the best k for KNN
+set.seed(1)
+n_fold<-5; # number of cross validations #
+#rep(1:n_fold, length.out = n) ## repeat 1:n_fold until we can the full size of n
+folds_i <- sample(rep(1:n_fold, length.out = n)) ##without replacement
+
+Final.OUT=NULL
+
+start.time <- Sys.time()
+for (i in 1:10)
+{
+OUT.KNN=NULL
+for (j in 1:n_fold)
+{
+test.ID <- which(folds_i == j)
+
+train_X <- cbind(new_Income$Men, new_Income$Women, new_Income$Hispanic, new_Income$Black, new_Income$Native, new_Income$Poverty, new_Income$ChildPov, new_Income$Professional, new_Income$Service, new_Income$Construction)[test.ID,]
+train_Y <- new_Income$Income_Levels[test.ID]
+test_X <- cbind(new_Income$Men, new_Income$Women, new_Income$Hispanic, new_Income$Black, new_Income$Native, new_Income$Poverty, new_Income$ChildPov, new_Income$Professional, new_Income$Service, new_Income$Construction)[-test.ID,]
+test_Y <- new_Income$Income_Levels[-test.ID]
+
+knn.pred=knn(train_X, test_X, train_Y, k=i)
+#table(knn.pred,test_Y)
+Accuracy=mean(knn.pred==test_Y)
+OUT.KNN=c(OUT.KNN, Accuracy)
+}
+print(c(i, OUT.KNN))
+Final.OUT=rbind(Final.OUT, OUT.KNN)
+}
+end.time <- Sys.time()
+time.taken_knn <- end.time - start.time
+
+time.taken_knn
+```
+```{r}
+apply(Final.OUT, 1, mean)
+```
+```{r}
+rowMeans(Final.OUT)
+```
+```{r}
+max(rowMeans(Final.OUT))
+```
+```{r}
+boxplot(t(Final.OUT), col=rainbow(10))
+```
+```{r}
+set.seed(1)
+n_fold<-5; # number of cross validations #
+#rep(1:n_fold, length.out = n) ## repeat 1:n_fold until we can the full size of n
+folds_i <- sample(rep(1:n_fold, length.out = n)) ##without replacement
+
+OUT.KNN=NULL
+
+start.time <- Sys.time()
+for (j in 1:n_fold)
+{
+test.ID <- which(folds_i == j)
+train_X <- cbind(new_Income$Men, new_Income$Women, new_Income$Hispanic, new_Income$Black, new_Income$Native, new_Income$Poverty, new_Income$ChildPov, new_Income$Professional, new_Income$Service, new_Income$Construction)[test.ID,]
+train_Y <- new_Income$Income_Levels[test.ID]
+test_X <- cbind(new_Income$Men, new_Income$Women, new_Income$Hispanic, new_Income$Black, new_Income$Native, new_Income$Poverty, new_Income$ChildPov, new_Income$Professional, new_Income$Service, new_Income$Construction)[-test.ID,]
+test_Y <- new_Income$Income_Levels[-test.ID]
+
+knn.pred=knn(train_X, test_X, train_Y, k=5)
+confusion_knn <- table(knn.pred,test_Y)
+Accuracy=mean(knn.pred==test_Y)
+OUT.KNN=c(OUT.KNN, Accuracy)
+}
+end.time <- Sys.time()
+time.taken_knn5 <- end.time - start.time
+
+time.taken_knn5
+print(OUT.KNN)
+```
+
+```{r}
+acc_knn <- mean(OUT.KNN) ##overall accuracy
+acc_knn
+```
+
+```{r}
+sd_knn <- sd(OUT.KNN)
+sd_knn
+```
+
+```{r}
+#Create boxplot
+KNN.5fold=OUT.KNN
+boxplot(OUT.KNN,col="orange")
+```
+
+```{r}
+confusion_knn
+Sensitivity_knn = confusion_knn[1,1]/(confusion_knn[1,1]+confusion_knn[2,1]); Sensitivity_knn
+Specificity_knn=confusion_knn[2,2]/(confusion_knn[2,2]+confusion_knn[1,2]); Specificity_knn
+```
+
+###Part e. Decision Tree - Classification###
+```{r}
+# Fit classification tree. This is a full, unpruned tree.
+set.seed(1)
+#new_Income_temp = subset(new_Income, select = -c(Income,IncPerCap,State,County,CensusTract,TotalPop,IncomeErr,IncomePerCapErr, Drive, Carpool, Transit, Walk, OtherTransp, WorkAtHome, MeanCommute, Employed, PrivateWork,PublicWork,SelfEmployed, FamilyWork,Unemployment, Citizen))
+
+n_fold <-5; # number of cross validations #
+folds_i <- sample(rep(1:n_fold, length.out = n)) ##without replacement
+OUT.tree=NULL
+TRUTH = NULL; OUTPUT=NULL;
+table(folds_i)
+
+start.time <- Sys.time()
+for (k in 1:n_fold)
+  {
+test.ID <- which(folds_i == k)
+#print(length(test.ID))
+#train_set <- new_Income[-test.ID,] ## set up training set
+#test_set <- new_Income[test.ID, ] ## set up validation set
+#print(test_set)
+#train=sample(1:nrow(new_Income), 36363)
+train=new_Income[-test.ID,]
+income.test=new_Income[test.ID,] ##test_XY
+levels.test=new_Income$Income_Level_Binary[test.ID] ##test_Y
+
+tree.income=tree(factor(Income_Level_Binary) ~ Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction, train)
+tree.pred=predict(tree.income,income.test,type="class")
+#print(lda.class)
+#table(lda.class,test_set[,5])
+
+Accuracy=mean(tree.pred==income.test$Income_Level_Binary)
+OUT.tree=c(OUT.tree, Accuracy)
+TRUTH = c(TRUTH, levels.test)
+OUTPUT= c(OUTPUT, tree.pred)
+#print(OUTPUT)
+}
+
+end.time <- Sys.time()
+time.taken_tree <- end.time - start.time
+
+time.taken_tree
+#summary(tree.income)
+print(OUT.tree)
+```
+
+```{r}
+acc_tree <- mean(OUT.tree)
+acc_tree
+```
+
+```{r}
+sd_tree <- sd(OUT.tree)
+sd_tree
+```
+
+```{r}
+boxplot(OUT.tree,col="skyblue",ylab = "Accuracy", xlab = "Boxplot of Accuracy Measurements for 5-Fold CV on Decision Tree")
+```
+
+```{r}
+#Create confusion matrx for decision tree
+confusion_tree <- table(OUTPUT, TRUTH)
+rownames(confusion_tree) = c("Low","High")
+colnames(confusion_tree) = c("Low", "High")
+confusion_tree
+#Sensitivity and Specificity
+Sensitivity_tree= confusion_tree[2,2]/(confusion_tree[1,2]+confusion_tree[2,2]); Sensitivity_tree
+Specificity_tree= confusion_tree[1,1]/(confusion_tree[1,1]+confusion_tree[2,1]); Specificity_tree
+```
+
+
+```{r}
+plot(tree.income)
+text(tree.income,pretty=0)
+```
+
+
+```{r}
+# Prune tree
+set.seed(1)
+cv.income=cv.tree(tree.income,FUN=prune.misclass)
+cv.income
+```
+
+```{r}
+par(mfrow=c(1,2))
+plot(cv.income$size,cv.income$dev,type="b")
+plot(cv.income$k,cv.income$dev,type="b")
+```
+
+```{r}
+#prune.income=prune.misclass(tree.income,best=6)
+#plot(prune.income)
+#text(prune.income,pretty=0)
+```
+
+```{r}
+# Set up training set
+#train=sample(1:nrow(new_Income), 36363)
+#income.test=new_Income[-train,] ##test_XY
+#levels.test=new_Income$Income_Level_Binary[-train] ##test_Y
+```
+
+```{r}
+# Run prediction based on test set
+#tree.income=tree(factor(Income_Level_Binary)~.-Income_Levels,new_Income_temp,subset=train)
+#tree.pred=predict(tree.income,income.test,type="class")
+```
+
+```{r}
+# Create confusion matrix for classification tree
+#confusion_tree = table(tree.pred,levels.test)
+#confusion_tree
+#Sensitivity_tree = confusion_tree[2,2]/(confusion_tree[1,2]+confusion_tree[2,2]); Sensitivity_tree
+#Specificity_tree= confusion_tree[1,1]/(confusion_tree[1,1]+confusion_tree[2,1]); Specificity_tree
+```
+
+```{r}
+# Accuracy
+#mean(tree.pred==levels.test)
+```
+
+###Part f. Bagging ###
+```{r}
+# Perform bagging. mtry = # predictors
+set.seed(1)
+n_fold <-5; # number of cross validations #
+folds_i <- sample(rep(1:n_fold, length.out = n)) ##without replacement
+OUT.bag=NULL
+TRUTH = NULL; OUTPUT=NULL;
+table(folds_i)
+
+start.time <- Sys.time()
+for (k in 1:n_fold)
+  {
+test.ID <- which(folds_i == 1)
+#print(length(test.ID))
+#train_set <- new_Income[-test.ID,] ## set up training set
+#test_set <- new_Income[test.ID, ] ## set up validation set
+#print(test_set)
+#train=sample(1:nrow(new_Income), 36363)
+train=new_Income[-test.ID,]
+income.test=new_Income[test.ID,] ##test_XY
+levels.test=new_Income$Income_Level_Binary[test.ID] ##test_Y
+
+bag.income=randomForest(factor(Income_Level_Binary)~Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction,data=train,mtry=10,importance=TRUE)
+bag.pred=predict(bag.income,income.test)
+
+Accuracy=mean(bag.pred==income.test$Income_Level_Binary)
+OUT.bag=c(OUT.bag, Accuracy)
+TRUTH = c(TRUTH, levels.test)
+OUTPUT= c(OUTPUT, bag.pred)
+#print(OUTPUT)
+}
+
+end.time <- Sys.time()
+time.taken_bag <- end.time - start.time
+
+time.taken_bag
+print(OUT.bag)
+```
+
+```{r}
+acc_bag <- mean(OUT.bag)
+acc_bag
+```
+
+```{r}
+sd_bag <- sd(OUT.bag)
+sd_bag
+```
+
+```{r}
+boxplot(OUT.bag,col="green",ylab = "Accuracy", xlab = "Boxplot of Accuracy Measurements for 5-Fold CV on Bagging")
+```
+
+```{r}
+# Confusion matrix for Bagging
+confusion_bag = table(OUTPUT, TRUTH)
+confusion_bag
+# Sensitivity and Specificity
+Sensitivity_bag = confusion_bag[2,2]/(confusion_bag[1,2]+confusion_bag[2,2]); Sensitivity_bag
+Specificity_bag= confusion_bag[1,1]/(confusion_bag[1,1]+confusion_bag[2,1]); Specificity_bag
+```
+
+###Part g. Random Forest ###
+```{r}
+# Perform Random Forest. Since this is classification, we are using mtry = sqrt(p), p = # predictors
+set.seed(1)
+n_fold <-5; # number of cross validations #
+folds_i <- sample(rep(1:n_fold, length.out = n)) ##without replacement
+OUT.rf=NULL
+TRUTH = NULL; OUTPUT=NULL;
+table(folds_i)
+
+start.time <- Sys.time()
+for (k in 1:n_fold)
+  {
+test.ID <- which(folds_i == k)
+#print(length(test.ID))
+#train_set <- new_Income[-test.ID,] ## set up training set
+#test_set <- new_Income[test.ID, ] ## set up validation set
+#print(test_set)
+#train=sample(1:nrow(new_Income), 36363)
+train=new_Income[-test.ID,]
+income.test=new_Income[test.ID,] ##test_XY
+levels.test=new_Income$Income_Level_Binary[test.ID] ##test_Y
+
+rf.income=randomForest(factor(Income_Level_Binary)~Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction,data=train,mtry=4,importance=TRUE)
+rf.pred=predict(rf.income,income.test,type="class")
+#print(lda.class)
+#table(lda.class,test_set[,5])
+
+Accuracy=mean(rf.pred==income.test$Income_Level_Binary)
+OUT.rf=c(OUT.rf, Accuracy)
+TRUTH = c(TRUTH, levels.test)
+OUTPUT= c(OUTPUT, rf.pred)
+#print(OUTPUT)
+}
+
+end.time <- Sys.time()
+time.taken_rf <- end.time - start.time
+
+time.taken_rf
+print(OUT.rf)
+```
+
+```{r}
+acc_rf = mean(OUT.rf)
+acc_rf
+```
+
+```{r}
+sd_rf = sd(OUT.rf)
+sd_rf
+```
+
+```{r}
+boxplot(OUT.rf,col="chocolate",ylab = "Accuracy", xlab = "Boxplot of Accuracy Measurements for 5-Fold CV on RF")
+```
+
+```{r}
+# Confusion matrix for random forest
+confusion_rf = table(OUTPUT, TRUTH)
+confusion_rf
+# Sensitivity and Specificity
+Sensitivity_rf = confusion_rf[2,2]/(confusion_rf[1,2]+confusion_rf[2,2]); Sensitivity_rf
+Specificity_rf= confusion_rf[1,1]/(confusion_rf[1,1]+confusion_rf[2,1]); Specificity_rf
+```
+###Part h. Boosting###
+```{r}
+# Perform boosting
+set.seed(1)
+n_fold <-5; # number of cross validations #
+folds_i <- sample(rep(1:n_fold, length.out = n)) ##without replacement
+OUT.boost=NULL
+TRUTH = NULL; OUTPUT=NULL;
+table(folds_i)
+
+start.time <- Sys.time()
+for (k in 1:n_fold)
+  {
+test.ID <- which(folds_i == k)
+#print(length(test.ID))
+#train_set <- new_Income[-test.ID,] ## set up training set
+#test_set <- new_Income[test.ID, ] ## set up validation set
+#print(test_set)
+#train=sample(1:nrow(new_Income), 36363)
+train=new_Income[-test.ID,]
+income.test=new_Income[test.ID,] ##test_XY
+levels.test=new_Income$Income_Level_Binary[test.ID] ##test_Y
+
+boost.income=gbm(factor(Income_Level_Binary)~Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction, data=train, distribution="bernoulli", n.trees=5000, interaction.depth=4)
+boost.pred=predict(tree.income,income.test,type="class")
+
+Accuracy=mean(boost.pred==income.test$Income_Level_Binary)
+OUT.boost=c(OUT.boost, Accuracy)
+TRUTH = c(TRUTH, levels.test)
+OUTPUT= c(OUTPUT, boost.pred)
+#print(OUTPUT)
+}
+
+end.time <- Sys.time()
+time.taken_boost <- end.time - start.time
+
+time.taken_boost
+print(OUT.boost)
+```
+
+```{r}
+acc_boost = mean(OUT.boost)
+acc_boost
+```
+
+```{r}
+sd_boost = sd(OUT.boost)
+sd_boost
+```
+
+```{r}
+boxplot(OUT.boost,col="firebrick",ylab = "Accuracy", xlab = "Boxplot of Accuracy Measurements for 5-Fold CV on Boosting")
+```
+
+```{r}
+# Confusion matrix for random forest
+confusion_boost = table(OUTPUT, TRUTH)
+confusion_boost
+# Sensitivity and Specificity
+Sensitivity_boost = confusion_boost[2,2]/(confusion_boost[1,2]+confusion_boost[2,2]); Sensitivity_boost
+Specificity_boost= confusion_boost[1,1]/(confusion_boost[1,1]+confusion_boost[2,1]); Specificity_boost
+```
+
+###Part i. Side-To-Side Bar Graphs###
+```{r}
+# Prepare results for graphing in barchart
+graphing_data_full = cbind(acc_log, Sensitivity_log, Specificity_log, acc_lda, Sensitivity_lda, Specificity_lda, acc_qda, Sensitivity_qda, Specificity_qda, acc_knn, Sensitivity_knn, Specificity_knn, acc_tree, Sensitivity_tree, Specificity_tree, acc_bag, Sensitivity_bag, Specificity_bag, acc_rf, Sensitivity_rf, Specificity_rf, acc_boost, Sensitivity_boost, Specificity_boost)
+graphing_data_full
+results_full <- matrix(graphing_data_full, nrow=8,ncol=3,byrow = T)
+colnames(results_full) <- c("Accuracy", "Sensitivity", "Specificity")
+rownames(results_full) <- c("Logistic Reg", "LDA", "QDA", "KNN","Tree","Bag","RF","Boost")
+graphing_data_full
+results_full
+```
+
+```{r}
+# Side to side bar graph
+barplot(results_full, 
+        col=c("cornflowerblue","bisque4","brown","burlywood","thistle","tan1","rosybrown","papayawhip"), 
+        border="white", 
+        font.axis=2, 
+        beside=T, 
+        #legend=rownames(results_full), 
+        xlab="Accuracy, Sensitivity, Specificity for all 8 Classifiers", 
+        font.lab=2)
+legend("topright", legend= rownames(results_full), fill=c("cornflowerblue", "bisque4", "brown", "burlywood", "thistle", "tan1", "rosybrown", "papayawhip"), box.lty=0)
+```
+
+```{r}
+graphing_data_sd = cbind(sd_log, sd_lda, sd_qda, sd_knn, sd_tree, sd_bag, sd_rf, sd_boost)
+graphing_data_sd
+results <- matrix(graphing_data_sd, nrow=8,ncol=1,byrow = T)
+colnames(results) <- c("Standard Error")
+rownames(results) <- c("Logistic Reg", "LDA", "QDA", "KNN","Tree","Bag","RF","Boost")
+graphing_data_sd
+results
+```
+
+```{r}
+# Side to side bar graph
+barplot(results, 
+        col=c("cornflowerblue","bisque4","brown","burlywood","thistle","tan1","rosybrown","papayawhip"), 
+        border="white", 
+        font.axis=2, 
+        beside=T, 
+        #legend=rownames(results_full), 
+        xlab="Standard Error Measurements for all 8 Classifiers", 
+        font.lab=2)
+legend("topright", legend= rownames(results), fill =c("cornflowerblue", "bisque4", "brown", "burlywood", "thistle", "tan1", "rosybrown", "papayawhip"), box.lty=0)
+```
+
+```{r}
+graphing_data_time = cbind(time.taken_log, time.taken_lda, time.taken_qda, time.taken_knn, time.taken_tree, time.taken_bag*60, time.taken_rf*60, time.taken_boost*60)
+graphing_data_time
+results_time <- matrix(graphing_data_time, nrow=8,ncol=1,byrow = T)
+colnames(results_time) <- c("Time")
+rownames(results_time) <- c("Logistic Reg", "LDA", "QDA", "KNN","Tree","Bag","RF","Boost")
+graphing_data_time
+results_time
+```
+
+```{r}
+# Side to side bar graph
+barplot(results_time, 
+        col=c("cornflowerblue","bisque4","brown","burlywood","thistle","tan1","rosybrown","papayawhip"), 
+        border="white", 
+        font.axis=2, 
+        beside=T, 
+        #legend=rownames(results_full), 
+        xlab="Run Time for all 8 Classifiers", 
+        ylab = "Run Time (sec)",
+        font.lab=2)
+legend("topright", legend= rownames(results_time), fill =c("cornflowerblue", "bisque4", "brown", "burlywood", "thistle", "tan1", "rosybrown", "papayawhip"), box.lty=0)
+```
+
+###Part j. Side-To-Side Accuracy Boxplot###
+```{r}
+name = c("Log Reg", "LDA", "QDA", "KNN", "Tree", "Bag", "RF", "Boost")
+boxplot(OUT.glm, OUT.LDA, OUT.QDA, OUT.KNN, OUT.tree, OUT.bag, OUT.rf, OUT.boost, col=rainbow(8), names = name, xlab="Accuracy Measurements of All Classifiers",ylab="Accuracy")
+```
+###Step 2: Regression with KNN, Decision Tree, Bagging, RandomForest, and Boosting###
+###Part a. KNN - regression###
+
+```{r}
+# Finding the best k for KNN
+set.seed(1)
+n_fold<-5; # number of cross validations #
+#rep(1:n_fold, length.out = n) ## repeat 1:n_fold until we can the full size of n
+folds_i <- sample(rep(1:n_fold, length.out = n)) ##without replacement
+
+Final.OUT=NULL
+
+start.time <- Sys.time()
+for (i in 1:10)
+{
+OUT.KNNreg=NULL
+for (j in 1:n_fold)
+{
+test.ID <- which(folds_i == j)
+
+train_X <- cbind(new_Income$Men, new_Income$Women, new_Income$Hispanic, new_Income$Black, new_Income$Native, new_Income$Poverty, new_Income$ChildPov, new_Income$Professional, new_Income$Service, new_Income$Construction)[test.ID,]
+train_Y <- new_Income$Income[test.ID]
+test_X <- cbind(new_Income$Men, new_Income$Women, new_Income$Hispanic, new_Income$Black, new_Income$Native, new_Income$Poverty, new_Income$ChildPov, new_Income$Professional, new_Income$Service, new_Income$Construction)[-test.ID,]
+test_Y <- new_Income$Income[-test.ID]
+
+knn.pred=FNN::knn.reg(train_X, test_X, train_Y, k=i)
+
+MSE=mean((knn.pred$pred-test_Y)^2)
+OUT.KNNreg=c(OUT.KNNreg, MSE)
+}
+print(c(i, OUT.KNNreg))
+Final.OUT=rbind(Final.OUT, OUT.KNNreg)
+}
+end.time <- Sys.time()
+time.taken_knn <- end.time - start.time
+
+time.taken_knn
+```
+```{r}
+apply(Final.OUT, 1, mean)
+```
+
+```{r}
+rowMeans(Final.OUT)
+```
+
+```{r}
+min(rowMeans(Final.OUT))
+```
+
+```{r}
+boxplot(t(Final.OUT), col=rainbow(10))
+```
+
+```{r}
+set.seed(1)
+n_fold<-5; # number of cross validations #
+#rep(1:n_fold, length.out = n) ## repeat 1:n_fold until we can the full size of n
+folds_i <- sample(rep(1:n_fold, length.out = n)) ##without replacement
+
+OUT.KNNreg=NULL
+
+start.time <- Sys.time()
+for (j in 1:n_fold)
+{
+test.ID <- which(folds_i == j)
+
+train_X <- cbind(new_Income$Men, new_Income$Women, new_Income$Hispanic, new_Income$Black, new_Income$Native, new_Income$Poverty, new_Income$ChildPov, new_Income$Professional, new_Income$Service, new_Income$Construction)[test.ID,]
+train_Y <- new_Income$Income[test.ID]
+test_X <- cbind(new_Income$Men, new_Income$Women, new_Income$Hispanic, new_Income$Black, new_Income$Native, new_Income$Poverty, new_Income$ChildPov, new_Income$Professional, new_Income$Service, new_Income$Construction)[-test.ID,]
+test_Y <- new_Income$Income[-test.ID]
+
+knn.pred=FNN::knn.reg(train_X, test_X, train_Y, k=6)
+
+MSE=mean((knn.pred$pred-test_Y)^2)
+OUT.KNNreg=c(OUT.KNNreg, MSE)
+}
+end.time <- Sys.time()
+time.taken_knn <- end.time - start.time
+
+time.taken_knn
+print(OUT.KNNreg)
+```
+
+```{r}
+mse_knn = mean(OUT.KNNreg)
+mse_knn
+```
+
+### Part b. Decision Tree - Regression###
+```{r}
+# Fit classification tree. This is a full, unpruned tree.
+set.seed(1)
+#new_Income_temp = subset(new_Income, select = -c(Income,IncPerCap,State,County,CensusTract,TotalPop,IncomeErr,IncomePerCapErr, Drive, Carpool, Transit, Walk, OtherTransp, WorkAtHome, MeanCommute, Employed, PrivateWork,PublicWork,SelfEmployed, FamilyWork,Unemployment, Citizen))
+
+n_fold <-5; # number of cross validations #
+folds_i <- sample(rep(1:n_fold, length.out = n)) ##without replacement
+OUT.tree=NULL
+TRUTH = NULL; OUTPUT=NULL;
+table(folds_i)
+
+start.time <- Sys.time()
+for (k in 1:n_fold)
+  {
+test.ID <- which(folds_i == k)
+train=new_Income[-test.ID,]
+income.test=new_Income[test.ID,] ##test_XY
+levels.test=new_Income$Income[test.ID] ##test_Y
+
+tree.income=tree(Income~ Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction, train)
+tree.pred=predict(tree.income,income.test)
+
+MSE=mean((tree.pred-levels.test)^2)
+OUT.tree=c(OUT.tree, MSE)
+#TRUTH = c(TRUTH, levels.test)
+OUTPUT= c(OUTPUT, tree.pred)
+#print(OUTPUT)
+}
+
+end.time <- Sys.time()
+time.taken_tree <- end.time - start.time
+
+time.taken_tree
+#summary(tree.income)
+print(OUT.tree)
+```
+```{r}
+MSE_tree = mean(OUT.tree)
+MSE_tree
+```
+###Part c. Bagging - regression###
+```{r}
+# Perform bagging. mtry = # predictors
+set.seed(1)
+n_fold <-5; # number of cross validations #
+folds_i <- sample(rep(1:n_fold, length.out = n)) ##without replacement
+OUT.bagreg=NULL
+#TRUTH = NULL;
+OUTPUT=NULL;
+table(folds_i)
+
+start.time <- Sys.time()
+for (k in 1:n_fold)
+  {
+test.ID <- which(folds_i == 1)
+#print(length(test.ID))
+#train_set <- new_Income[-test.ID,] ## set up training set
+#test_set <- new_Income[test.ID, ] ## set up validation set
+#print(test_set)
+#train=sample(1:nrow(new_Income), 36363)
+train=new_Income[-test.ID,]
+income.test=new_Income[test.ID,] ##test_XY
+levels.test=new_Income$Income[test.ID] ##test_Y
+
+bag.income=randomForest(Income ~ Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction,data=train,mtry=10,importance=TRUE)
+bag.pred=predict(bag.income,income.test)
+
+MSE=mean((bag.pred-levels.test)^2)
+OUT.bagreg=c(OUT.bagreg, MSE)
+#TRUTH = c(TRUTH, levels.test)
+OUTPUT= c(OUTPUT, bag.pred)
+#print(OUTPUT)
+}
+
+end.time <- Sys.time()
+time.taken_bag <- end.time - start.time
+
+time.taken_bag
+print(OUT.bagreg)
+```
+
+```{r}
+mse_bag = mean(OUT.bagreg)
+mse_bag
+```
+
+###Part d. Random Forest - Regression ###
+```{r}
+# Perform Random Forest. Since this is regression, we are using mtry = p/3, p = # predictors. In this case, since we are rounding up, we wind up with the same mtry value as with classification.
+set.seed(1)
+n_fold <-5; # number of cross validations #
+folds_i <- sample(rep(1:n_fold, length.out = n)) ##without replacement
+OUT.rfreg=NULL
+#TRUTH = NULL;
+OUTPUT=NULL;
+table(folds_i)
+
+start.time <- Sys.time()
+for (k in 1:n_fold)
+  {
+test.ID <- which(folds_i == k)
+#print(length(test.ID))
+#train_set <- new_Income[-test.ID,] ## set up training set
+#test_set <- new_Income[test.ID, ] ## set up validation set
+#print(test_set)
+#train=sample(1:nrow(new_Income), 36363)
+train=new_Income[-test.ID,]
+income.test=new_Income[test.ID,] ##test_XY
+levels.test=new_Income$Income[test.ID] ##test_Y
+
+rf.income=randomForest(Income ~ Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction,data=train,mtry=4,importance=TRUE)
+rf.pred=predict(rf.income,income.test)
+#print(lda.class)
+#table(lda.class,test_set[,5])
+
+MSE=mean((rf.pred-levels.test)^2)
+OUT.rfreg=c(OUT.rfreg, MSE)
+#TRUTH = c(TRUTH, levels.test)
+OUTPUT= c(OUTPUT, rf.pred)
+#print(OUTPUT)
+}
+
+end.time <- Sys.time()
+time.taken_rf <- end.time - start.time
+
+time.taken_rf
+print(OUT.rfreg)
+```
+```{r}
+mse_rf = mean(OUT.rfreg)
+mse_rf
+```
+
+###Part e. Boosting - Regression ###
+```{r}
+# Perform boosting
+set.seed(1)
+n_fold <-5; # number of cross validations #
+folds_i <- sample(rep(1:n_fold, length.out = n)) ##without replacement
+OUT.boostreg=NULL
+#TRUTH = NULL;
+OUTPUT=NULL;
+table(folds_i)
+
+start.time <- Sys.time()
+for (k in 1:n_fold)
+  {
+test.ID <- which(folds_i == k)
+
+train=new_Income[-test.ID,]
+income.test=new_Income[test.ID,] ##test_XY
+levels.test=new_Income$Income[test.ID] ##test_Y
+
+boost.income=gbm(Income ~ Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction, data=train, distribution="gaussian", n.trees=3000, interaction.depth=4)
+boost.pred=predict(boost.income,income.test)
+
+MSE=mean((boost.pred-levels.test)^2)
+OUT.boostreg=c(OUT.boostreg, MSE)
+#TRUTH = c(TRUTH, levels.test)
+OUTPUT= c(OUTPUT, boost.pred)
+#print(OUTPUT)
+}
+
+end.time <- Sys.time()
+time.taken_boost <- end.time - start.time
+
+time.taken_boost
+print(OUT.boostreg)
+```
+
+```{r}
+mse_boost = mean(OUT.boostreg)
+mse_boost
+```
+
+###Part f. Side-to-Side Bar Graphs ###
+```{r}
+#Set up run time data
+graphing_data_time = cbind(time.taken_knn/60, time.taken_tree/60, time.taken_bag*60, time.taken_rf*60, time.taken_boost)
+graphing_data_time
+results_time <- matrix(graphing_data_time, nrow=5,ncol=1,byrow = T)
+colnames(results_time) <- c("Time")
+rownames(results_time) <- c("KNN","Tree","Bag","RF","Boost")
+graphing_data_time
+results_time
+```
+
+```{r}
+#run time side to side bar graph
+barplot(results_time, 
+        col=c("burlywood","thistle","tan1","rosybrown","papayawhip"), 
+        border="white", 
+        font.axis=2, 
+        beside=T, 
+        #legend=rownames(results_full), 
+        xlab="Run Time for Regression Procedures", 
+        ylab = "Run Time (min)",
+        font.lab=2)
+legend("topright", legend= rownames(results_time), fill =c("burlywood", "thistle", "tan1", "rosybrown", "papayawhip"), box.lty=0)
+```
+
+```{r}
+#set up MSE data
+graphing_data = cbind(mse_knn, MSE_tree, mse_bag, mse_rf, mse_boost)
+graphing_data
+results <- matrix(graphing_data, nrow=5,ncol=1,byrow = T)
+colnames(results) <- c("MSE")
+rownames(results) <- c("KNN","Tree","Bag","RF","Boost")
+graphing_data
+results
+```
+```{r}
+# MSE side to side bar graph
+barplot(results, 
+        col=c("burlywood","thistle","tan1","rosybrown","papayawhip"), 
+        border="white", 
+        font.axis=2, 
+        beside=T, 
+        #legend=rownames(results_full), 
+        xlab="Average MSE for Regression Procedures",
+        font.lab=2)
+legend("topright", legend= rownames(results), fill =c("burlywood", "thistle", "tan1", "rosybrown", "papayawhip"), box.lty=0)
+```
+###Part g. Comparison with Poly & Log Models###
+```{r}
+#Income versus type of employment - polynomial, from project 2
+start.time <- Sys.time()
+
+lm.fit3c=lm(Income~Professional+Service+Office+Construction+Production+I(Professional^2)+I(Service^2)+I(Office^2)+I(Construction^2)+I(Production^2)+I(Professional^3)+I(Service^3)+I(Office^3)+I(Construction^3)+I(Production^3),data=Income)
+
+end.time <- Sys.time()
+time.taken_poly <- end.time - start.time
+
+time.taken_poly
+summary(lm.fit3c)
+```
+```{r}
+poly.pred = predict(lm.fit3c, Income)
+MSE_poly=mean((poly.pred-Income$Income)^2)
+MSE_poly
+```
+
+```{r}
+#Log model from project 3
+start.time <- Sys.time()
+lm.fit2a=lm(log1p(Income)~log1p(Men) + log1p(Women) + log1p(Hispanic) + log1p(White) + log1p(Black) + log1p(Native) + log1p(Asian) + log1p(Pacific) + log1p(IncPerCap) + log1p(Poverty) + log1p(ChildPov) + log1p(Professional) + log1p(Service) + log1p(Office) + log1p(Construction), data=Income)
+
+end.time <- Sys.time()
+time.taken_lreg <- end.time - start.time
+
+time.taken_lreg
+summary(lm.fit2a)
+```
+```{r}
+lreg.pred = predict(lm.fit2a, Income)
+MSE_lreg=mean((lreg.pred-Income$Income)^2)
+MSE_lreg
+```
+
+```{r}
+#Set up run time data
+graphing_data_time = cbind(time.taken_poly/60, time.taken_lreg/60, time.taken_knn/60, time.taken_tree/60, time.taken_bag*60, time.taken_rf*60, time.taken_boost)
+graphing_data_time
+results_time <- matrix(graphing_data_time, nrow=7,ncol=1,byrow = T)
+colnames(results_time) <- c("Time")
+rownames(results_time) <- c("Poly", "Logarithmic", "KNN","Tree","Bag","RF","Boost")
+graphing_data_time
+results_time
+```
+
+```{r}
+#run time side to side bar graph
+barplot(results_time, 
+        col=c("brown", "gray", "burlywood","thistle","tan1","rosybrown","papayawhip"), 
+        border="white", 
+        font.axis=2, 
+        beside=T, 
+        #legend=rownames(results_full), 
+        xlab="Run Time for Regression Procedures", 
+        ylab = "Run Time (min)",
+        font.lab=2)
+legend("topright", legend= rownames(results_time), fill =c("brown", "gray", "burlywood", "thistle", "tan1", "rosybrown", "papayawhip"), box.lty=0)
+```
+```{r}
+#Set up run time data, without bagging, random forest, and boosting. The run time of these procedures makes reading the bar chart difficult.
+graphing_data_time2 = cbind(time.taken_poly/60, time.taken_lreg/60, time.taken_knn/60, time.taken_tree/60)
+graphing_data_time2
+results_time2 <- matrix(graphing_data_time2, nrow=4,ncol=1,byrow = T)
+colnames(results_time2) <- c("Time")
+rownames(results_time2) <- c("Poly", "Logarithmic", "KNN","Tree")
+graphing_data_time2
+results_time2
+```
+```{r}
+#run time side to side bar graph, without bagging, random forest, and boosting
+barplot(results_time2, 
+        col=c("brown", "gray", "burlywood", "thistle"), 
+        border="white", 
+        font.axis=2, 
+        beside=T, 
+        #legend=rownames(results_full), 
+        xlab="Run Time for Regression Procedures", 
+        ylab = "Run Time (min)",
+        font.lab=2)
+legend("topright", legend= rownames(results_time2), fill =c("brown", "gray", "burlywood", "thistle"), box.lty=0)
+```
+
+```{r}
+#set up MSE data
+graphing_data = cbind(MSE_poly, MSE_lreg, mse_knn, MSE_tree, mse_bag, mse_rf, mse_boost)
+graphing_data
+results <- matrix(graphing_data, nrow=7,ncol=1,byrow = T)
+colnames(results) <- c("MSE")
+rownames(results) <- c("Poly", "Logarithmic", "KNN","Tree","Bag","RF","Boost")
+graphing_data
+results
+```
+
+```{r}
+# MSE side to side bar graph
+barplot(results, 
+        col=c("brown", "gray", "burlywood","thistle","tan1","rosybrown","papayawhip"), 
+        border="white", 
+        font.axis=2, 
+        beside=T, 
+        #legend=rownames(results_full), 
+        xlab="Average MSE for Regression Procedures",
+        font.lab=2)
+legend("topright", legend= rownames(results), fill =c("brown", "gray", "burlywood", "thistle", "tan1", "rosybrown", "papayawhip"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

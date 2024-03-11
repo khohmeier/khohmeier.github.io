@@ -1,0 +1,729 @@
+---
+title: "Hohmeier_Project4"
+author: "Kaitlyn Hohmeier"
+date: "11/9/2020"
+output: pdf_document
+---
+  <style type="text/css">
+  
+  body{ /* Normal  */
+      font-size: 16px;
+  }
+td {  /* Table  */
+    font-size: 8px;
+}
+h1.title {
+  font-size: 38px;
+  color: DarkRed;
+}
+h1 { /* Header 1 */
+    font-size: 28px;
+  color: DarkBlue;
+}
+h2 { /* Header 2 */
+    font-size: 22px;
+  color: DarkBlue;
+}
+h3 { /* Header 3 */
+    font-size: 18px;
+  font-family: "Times New Roman", Times, serif;
+  color: DarkBlue;
+}
+code.r{ /* Code block */
+    font-size: 16px;
+}
+pre { /* Code block - determines code spacing between lines */
+    font-size: 16px;
+}
+</style>
+
+```{r}
+library(MASS);
+library(ISLR);
+library(car);
+library(tidyverse);
+library(class);
+```
+
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE, comment = NA, message = FALSE)
+```
+
+```{r, echo = F}
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+```
+## R Markdown ##
+
+```{r}
+# Initial data read-in, without "cleaning up"
+
+init <- read.csv("C://Users//Kaitlyn//Documents//Documents - Old Laptop//College Work//3rd year Junior//Semester 1//STT 450//Project//US Census Data Sets//acs2015_census_tract_data.csv")
+```
+
+```{r}
+# Cleaning up the data
+Income <- na.omit(init)
+```
+
+### Section 5: Classification ###
+
+### Step 1: Train on Full, Test on Full ###
+### Part a. Logistic Regression###
+
+```{r}
+# First, we need to create a new factor variable from Income per Capita, based on national poverty level of $12,084 for an individual
+new_Income = Income
+levels <- ifelse(new_Income$IncPerCap <= 12082, "low", "high")
+new_Income$Income_Levels <- levels
+table(new_Income$Income_Levels)
+
+binary_levels <- ifelse(new_Income$Income_Levels=="high", 1, 0)
+new_Income$Income_Level_Binary <- binary_levels
+```
+
+```{r}
+start.time <- Sys.time()
+glm.fit2=glm(Income_Level_Binary~Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction,data=new_Income,family=binomial)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+summary(glm.fit2)
+```
+
+```{r}
+glm.probs2=predict(glm.fit2,type="response")
+glm.probs2[1:100]
+```
+
+```{r}
+# Run contrasts
+# contrasts(new_Income$factor(Income_Level_Binary))
+```
+
+
+```{r}
+# Create confusion matrix
+glm.pred=rep("low",72727)
+glm.pred[glm.probs2>=.5]="high"
+# Prediction accuracy
+acc_log = mean(glm.pred==new_Income$Income_Levels)
+acc_log
+```
+```{r}
+Confusion = table(glm.pred, new_Income$Income_Levels)
+Confusion
+Sensitivity_log = Confusion[1,1]/(Confusion[1,1]+Confusion[2,1]); Sensitivity_log
+Specificity_log = Confusion[2,2]/(Confusion[2,2]+Confusion[1,2]); Specificity_log
+```
+###Part b. LDA###
+```{r}
+# Perform LDA
+start.time <- Sys.time()
+lda.fit=MASS::lda(Income_Level_Binary~Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction,data=new_Income)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+lda.fit
+```
+```{r}
+# Plot the LDA analysis that was run
+plot(lda.fit)
+```
+
+```{r}
+# Use LDA to make predictions
+lda.pred=predict(lda.fit, new_Income)
+names(lda.pred)
+lda.class=lda.pred$class;
+head(lda.class)
+```
+
+```{r}
+# for LDA prediction posterior for classes
+head(lda.pred$posterior)
+head(lda.pred$x)
+```
+
+
+```{r}
+# Confusion matrix for LDA
+confusion <- table(lda.class,new_Income$Income_Level_Binary)
+rownames(confusion) <- c("low","high")
+colnames(confusion) <- c("low","high")
+confusion
+Sensitivity_lda = confusion[2,2]/(confusion[1,2]+confusion[2,2]); Sensitivity_lda
+Specificity_lda = confusion[1,1]/(confusion[1,1]+confusion[2,1]); Specificity_lda
+
+```
+
+```{r}
+# Predictor accuracy
+acc_lda = mean(lda.class==new_Income$Income_Level_Binary)
+acc_lda
+```
+
+
+###Part c. QDA ###
+
+```{r}
+# Perform QDA
+start.time <- Sys.time()
+qda.fit=MASS::qda(Income_Level_Binary~Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction,data=new_Income)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+qda.fit
+```
+
+```{r}
+# Create confusion matrix
+qda.class=predict(qda.fit,new_Income)$class
+confusion_qda <- table(qda.class,new_Income$Income_Level_Binary)
+rownames(confusion_qda) <- c("low","high")
+colnames(confusion_qda) <- c("low","high")
+confusion_qda
+Sensitivity_qda= confusion_qda[2,2]/(confusion_qda[1,2]+confusion_qda[2,2]); Sensitivity_qda
+Specificity_qda= confusion_qda[1,1]/(confusion_qda[1,1]+confusion_qda[2,1]); Specificity_qda
+```
+
+```{r}
+acc_qda = mean(qda.class==new_Income$Income_Level_Binary)
+acc_qda
+```
+
+###Part d. KNN ###
+```{r}
+# Create test and training data sets. In this case, we are testing on full, training on full
+train.X=cbind(new_Income$Men, new_Income$Women, new_Income$Hispanic, new_Income$Black, new_Income$Native, new_Income$Poverty, new_Income$ChildPov, new_Income$Professional, new_Income$Service, new_Income$Construction)
+test.X=cbind(new_Income$Men, new_Income$Women, new_Income$Hispanic, new_Income$Black, new_Income$Native, new_Income$Poverty, new_Income$ChildPov, new_Income$Professional, new_Income$Service, new_Income$Construction)
+train.Income=new_Income$Income_Levels
+```
+
+
+```{r}
+# Run KNN k = 1
+start.time <- Sys.time()
+set.seed(1)
+knn.pred=knn(train.X,test.X,train.Income,k=1)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+head(knn.pred)
+```
+
+```{r}
+# Create Confusion matrix, k = 1
+confusion_k1 <- table(knn.pred,new_Income$Income_Levels)
+confusion_k1
+Sensitivity_k1= confusion_k1[1,1]/(confusion_k1[1,1]+confusion_k1[2,1]); Sensitivity_k1
+Specificity_k1= confusion_k1[2,2]/(confusion_k1[2,2]+confusion_k1[1,2]); Specificity_k1
+```
+
+```{r}
+# Prediction accuracy k = 1
+acc_k1 = mean(knn.pred==new_Income$Income_Levels)
+acc_k1
+```
+
+```{r}
+# Run KNN k = 2
+start.time <- Sys.time()
+knn.pred2=knn(train.X,test.X,train.Income,k=2)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+head(knn.pred2)
+```
+
+```{r}
+# Create Confusion matrix, k = 2
+confusion_k2 <- table(knn.pred2,new_Income$Income_Levels)
+confusion_k2
+Sensitivity_k2= confusion_k2[1,1]/(confusion_k2[1,1]+confusion_k2[2,1]); Sensitivity_k2
+Specificity_k2= confusion_k2[2,2]/(confusion_k2[2,2]+confusion_k2[1,2]); Specificity_k2
+```
+
+```{r}
+# Prediction accuracy, k = 2
+acc_k2 = mean(knn.pred2==new_Income$Income_Levels)
+acc_k2
+```
+```{r}
+# Run KNN k = 3
+start.time <- Sys.time()
+knn.pred3=knn(train.X,test.X,train.Income,k=3)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+head(knn.pred3)
+```
+
+```{r}
+# Create Confusion matrix, k = 3
+confusion_k3 <- table(knn.pred3,new_Income$Income_Levels)
+confusion_k3
+Sensitivity_k3= confusion_k3[1,1]/(confusion_k3[1,1]+confusion_k3[2,1]); Sensitivity_k3
+Specificity_k3= confusion_k3[2,2]/(confusion_k3[2,2]+confusion_k3[1,2]); Specificity_k3
+```
+
+```{r}
+# Prediction accuracy, k = 3
+acc_k3 = mean(knn.pred3==new_Income$Income_Levels)
+acc_k3
+```
+
+```{r}
+# Run KNN k = 4
+start.time <- Sys.time()
+knn.pred4=knn(train.X,test.X,train.Income,k=4)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+head(knn.pred4)
+```
+
+```{r}
+# Create Confusion matrix, k = 4
+confusion_k4 <- table(knn.pred4,new_Income$Income_Levels)
+confusion_k4
+Sensitivity_k4= confusion_k4[1,1]/(confusion_k4[1,1]+confusion_k4[2,1]); Sensitivity_k4
+Specificity_k4= confusion_k4[2,2]/(confusion_k4[2,2]+confusion_k4[1,2]); Specificity_k4
+```
+
+```{r}
+# Prediction accuracy, k = 4
+acc_k4 = mean(knn.pred4==new_Income$Income_Levels)
+acc_k4
+```
+
+```{r}
+# Run KNN k = 5
+start.time <- Sys.time()
+knn.pred5=knn(train.X,test.X,train.Income,k=5)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+head(knn.pred5)
+```
+
+```{r}
+# Create Confusion matrix, k = 5
+confusion_k5 <- table(knn.pred5,new_Income$Income_Levels)
+confusion_k5
+Sensitivity_k5= confusion_k5[1,1]/(confusion_k5[1,1]+confusion_k5[2,1]); Sensitivity_k5
+Specificity_k6= confusion_k5[2,2]/(confusion_k5[2,2]+confusion_k5[1,2]); Specificity_k6
+```
+
+```{r}
+# Prediction accuracy, k = 5
+acc_k5 = mean(knn.pred5==new_Income$Income_Levels)
+acc_k5
+```
+
+```{r}
+# Run KNN k = 6
+start.time <- Sys.time()
+knn.pred6=knn(train.X,test.X,train.Income,k=6)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+head(knn.pred6)
+```
+
+```{r}
+# Create Confusion matrix, k = 6
+confusion_k6 <- table(knn.pred6,new_Income$Income_Levels)
+confusion_k6
+Sensitivity_k6= confusion_k6[1,1]/(confusion_k6[1,1]+confusion_k6[2,1]); Sensitivity_k6
+Specificity_k6= confusion_k6[2,2]/(confusion_k6[2,2]+confusion_k6[1,2]); Specificity_k6
+```
+
+```{r}
+# Prediction accuracy, k = 6
+acc_k6 = mean(knn.pred6==new_Income$Income_Levels)
+acc_k6
+```
+
+```{r}
+# Run KNN k = 7
+start.time <- Sys.time()
+knn.pred7=knn(train.X,test.X,train.Income,k=7)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+head(knn.pred7)
+```
+
+```{r}
+# Create Confusion matrix, k = 7
+confusion_k7 <- table(knn.pred7,new_Income$Income_Levels)
+confusion_k7
+Sensitivity_k7= confusion_k7[1,1]/(confusion_k7[1,1]+confusion_k7[2,1]); Sensitivity_k7
+Specificity_k7= confusion_k7[2,2]/(confusion_k7[2,2]+confusion_k7[1,2]); Specificity_k7
+```
+
+```{r}
+# Prediction accuracy, k = 7
+acc_k7 = mean(knn.pred7==new_Income$Income_Levels)
+acc_k7
+```
+
+### Step 2: Train on 50%, Test on 50% ###
+```{r}
+# Set up training and test sets. First 50% of data is training set; remaining 50% is testing set
+test=1:36364
+training.x = new_Income[test,]
+testing.x = new_Income[-test,]
+
+training.y = new_Income$Income_Levels[test]
+testing.y = new_Income$Income_Levels[-test]
+```
+
+### Part a. Logistic Regression ###
+
+```{r}
+# Perform logistic regression on training set
+start.time <- Sys.time()
+glm.fit=glm(Income_Level_Binary~Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction, data=new_Income, family=binomial, subset=test)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+summary(glm.fit)
+```
+```{r}
+# Use glm models to predict for the test set
+glm.probs=predict(glm.fit,new_Income[-test,],type="response")
+glm.pred=rep("low",36363)
+glm.pred[glm.probs>.5]="high"
+
+# Create confusion matrix
+Confusion_log <- table(glm.pred,testing.y)
+Confusion_log
+Sensitivity_log2= Confusion_log[1,1]/(Confusion_log[1,1]+Confusion_log[2,1]); Sensitivity_log2
+Specificity_log2= Confusion_log[2,2]/(Confusion_log[2,2]+Confusion_log[1,2]); Specificity_log2
+```
+```{r}
+# prediction accuracy
+acc_log2 = mean(glm.pred==testing.y)
+acc_log2
+```
+
+###Part b. LDA ###
+
+```{r}
+training.y = new_Income$Income_Level_Binary[test]
+testing.y = new_Income$Income_Level_Binary[-test]
+```
+
+
+```{r}
+# Perform LDA
+start.time <- Sys.time()
+lda.fit2=MASS::lda(Income_Level_Binary~Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction,data=new_Income,subset=test)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+lda.fit2
+```
+```{r}
+# Plot the LDA analysis that was run
+plot(lda.fit2)
+```
+
+```{r}
+# Use LDA to make predictions
+lda.pred2=predict(lda.fit2, testing.x)
+names(lda.pred2)
+lda.class2=lda.pred2$class;
+head(lda.class2)
+```
+
+```{r}
+# for LDA prediction posterior for classes
+head(lda.pred2$posterior)
+head(lda.pred2$x)
+```
+
+
+```{r}
+# Confusion matrix for LDA
+confusion <- table(lda.class2,testing.y)
+rownames(confusion) <- c("low","high")
+colnames(confusion) <- c("low","high")
+confusion
+Sensitivity_lda2= confusion[2,2]/(confusion[1,2]+confusion[2,2]); Sensitivity_lda2
+Specificity_lda2= confusion[1,1]/(confusion[1,1]+confusion[2,1]); Specificity_lda2
+```
+
+```{r}
+# Predictor accuracy
+acc_lda2 = mean(lda.class2==testing.y)
+acc_lda2
+```
+
+###Part c. QDA ###
+
+```{r}
+# Perform QDA
+start.time <- Sys.time()
+qda.fit2=MASS::qda(Income_Level_Binary~Men + Women + Hispanic + Black + Native + Poverty + ChildPov + Professional + Service + Construction,data=new_Income,subset=test)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+qda.fit2
+```
+```{r}
+# Create confusion matrix
+qda.class2=predict(qda.fit2,testing.x)$class
+confusion_qda2 <- table(qda.class2,testing.y)
+rownames(confusion_qda2) <- c("low","high")
+colnames(confusion_qda2) <- c("low","high")
+confusion_qda2
+Sensitivity_qda2= confusion_qda2[2,2]/(confusion_qda2[1,2]+confusion_qda2[2,2]); Sensitivity_qda2
+Specificity_qda2= confusion_qda2[1,1]/(confusion_qda2[1,1]+confusion_qda2[2,1]); Specificity_qda2
+```
+
+```{r}
+# prediction accuracy
+acc_qda2 = mean(qda.class2==testing.y)
+acc_qda2
+```
+
+###Part d. KNN ###
+
+```{r}
+# Create test and training data sets. In this case, we are training on the first 50% and testing on the last 50%
+# Note: an observation was removed from the training set in order to make the training and testing set sizes equal. Otherwise, KNN would not run.
+train.X=cbind(new_Income$Men, new_Income$Women, new_Income$Hispanic, new_Income$Black, new_Income$Native, new_Income$Poverty, new_Income$ChildPov, new_Income$Professional, new_Income$Service, new_Income$Construction)[test,]
+test.X=cbind(new_Income$Men, new_Income$Women, new_Income$Hispanic, new_Income$Black, new_Income$Native, new_Income$Poverty, new_Income$ChildPov, new_Income$Professional, new_Income$Service, new_Income$Construction)[-test,]
+train.Y=new_Income$Income_Levels[test]
+test.Y=new_Income$Income_Levels[-test]
+```
+
+```{r}
+# Run KNN, k = 1
+# set.seed(1)
+start.time <- Sys.time()
+knn.pred11=knn(train.X,test.X,train.Y,k=1)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+head(knn.pred11)
+```
+```{r}
+# Create Confusion matrix, k = 1
+confusion_k11 <- table(knn.pred11,test.Y)
+confusion_k11
+Sensitivity_k11= confusion_k11[1,1]/(confusion_k11[1,1]+confusion_k11[2,1]); Sensitivity_k11
+Specificity_k11= confusion_k11[2,2]/(confusion_k11[2,2]+confusion_k11[1,2]); Specificity_k11
+```
+
+```{r}
+# Prediction accuracy k = 1
+acc_k11 = mean(knn.pred11==test.Y)
+acc_k11
+```
+```{r}
+# Run KNN, k = 2
+# set.seed(1)
+start.time <- Sys.time()
+knn.pred12=knn(train.X,test.X,train.Y,k=2)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+head(knn.pred12)
+```
+
+```{r}
+# Create Confusion matrix, k = 2
+confusion_k12 <- table(knn.pred12,test.Y)
+confusion_k12
+Sensitivity_k12= confusion_k12[1,1]/(confusion_k12[1,1]+confusion_k12[2,1]); Sensitivity_k12
+Specificity_k12= confusion_k12[2,2]/(confusion_k12[2,2]+confusion_k12[1,2]); Specificity_k12
+```
+
+```{r}
+# Prediction accuracy k = 2
+acc_k12 = mean(knn.pred12==test.Y)
+acc_k12
+```
+
+```{r}
+# Run KNN, k = 3
+# set.seed(1)
+start.time <- Sys.time()
+knn.pred13=knn(train.X,test.X,train.Y,k=3)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+head(knn.pred13)
+```
+
+```{r}
+# Create Confusion matrix, k = 3
+confusion_k13 <- table(knn.pred13,test.Y)
+confusion_k13
+Sensitivity_k13= confusion_k13[1,1]/(confusion_k13[1,1]+confusion_k13[2,1]); Sensitivity_k13
+Specificity_k13= confusion_k13[2,2]/(confusion_k13[2,2]+confusion_k13[1,2]); Specificity_k13
+```
+
+```{r}
+# Prediction accuracy k = 3
+acc_k13 = mean(knn.pred13==test.Y)
+acc_k13
+```
+```{r}
+# Run KNN, k = 4
+# set.seed(1)
+start.time <- Sys.time()
+knn.pred14=knn(train.X,test.X,train.Y,k=4)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+head(knn.pred14)
+```
+
+```{r}
+# Create Confusion matrix, k = 4
+confusion_k14 <- table(knn.pred14,test.Y)
+confusion_k14
+Sensitivity_k14= confusion_k14[1,1]/(confusion_k14[1,1]+confusion_k14[2,1]); Sensitivity_k14
+Specificity_k14= confusion_k14[2,2]/(confusion_k14[2,2]+confusion_k14[1,2]); Specificity_k14
+```
+
+```{r}
+# Prediction accuracy k = 4
+acc_k14 = mean(knn.pred14==test.Y)
+acc_k14
+```
+```{r}
+# Run KNN, k = 5
+# set.seed(1)
+start.time <- Sys.time()
+knn.pred15=knn(train.X,test.X,train.Y,k=5)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+head(knn.pred15)
+```
+
+```{r}
+# Create Confusion matrix, k = 5
+confusion_k15 <- table(knn.pred15,test.Y)
+confusion_k15
+Sensitivity_k15= confusion_k15[1,1]/(confusion_k15[1,1]+confusion_k15[2,1]); Sensitivity_k15
+Specificity_k15= confusion_k15[2,2]/(confusion_k15[2,2]+confusion_k15[1,2]); Specificity_k15
+```
+
+```{r}
+# Prediction accuracy k = 5
+acc_k15 = mean(knn.pred15==test.Y)
+acc_k15
+```
+```{r}
+# Run KNN, k = 6
+# set.seed(1)
+start.time <- Sys.time()
+knn.pred16=knn(train.X,test.X,train.Y,k=6)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+head(knn.pred16)
+```
+
+```{r}
+# Create Confusion matrix, k = 6
+confusion_k16 <- table(knn.pred16,test.Y)
+confusion_k16
+Sensitivity_k16= confusion_k16[1,1]/(confusion_k16[1,1]+confusion_k16[2,1]); Sensitivity_k16
+Specificity_k16= confusion_k16[2,2]/(confusion_k16[2,2]+confusion_k16[1,2]); Specificity_k16
+```
+
+```{r}
+# Prediction accuracy k = 6
+acc_k16 = mean(knn.pred16==test.Y)
+acc_k16
+```
+```{r}
+# Run KNN, k = 7
+# set.seed(1)
+start.time <- Sys.time()
+knn.pred17=knn(train.X,test.X,train.Y,k=7)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+head(knn.pred16)
+```
+
+```{r}
+# Create Confusion matrix, k = 7
+confusion_k17 <- table(knn.pred17,test.Y)
+confusion_k17
+Sensitivity_k17= confusion_k17[1,1]/(confusion_k17[1,1]+confusion_k17[2,1]); Sensitivity_k17
+Specificity_k17= confusion_k17[2,2]/(confusion_k17[2,2]+confusion_k17[1,2]); Specificity_k17
+```
+
+```{r}
+# Prediction accuracy k = 7
+acc_k17 = mean(knn.pred17==test.Y)
+acc_k17
+```
+
+###Part 3. Graphical Comparisons ###
+```{r}
+# Prepare results for graphing in barchart
+graphing_data_full = cbind(acc_log, Sensitivity_log, Specificity_log, acc_lda, Sensitivity_lda, Specificity_lda, acc_qda, Sensitivity_qda, Specificity_qda, acc_k3, Sensitivity_k3, Specificity_k3)
+graphing_data_full
+results_full <- matrix(graphing_data_full, nrow=4,ncol=3,byrow = T)
+colnames(results_full) <- c("Accuracy", "Sensitivity", "Specificity")
+rownames(results_full) <- c("Logistic Reg", "LDA", "QDA", "KNN")
+graphing_data_full
+results_full
+```
+```{r}
+barplot(results_full, 
+        col=c("cornflowerblue","bisque4","brown","burlywood"), 
+        border="white", 
+        font.axis=2, 
+        beside=T, 
+        #legend=rownames(results_full), 
+        xlab="Logistic Reg, LDA, QDA, and KNN k = 3, Full Data", 
+        font.lab=2)
+legend("topright", legend= rownames(results_full), fill =c("cornflowerblue","bisque4","brown","burlywood"), box.lty=0)
+```
+```{r}
+# Prepare results for graphing in barchart
+graphing_data_half = cbind(acc_log2, Sensitivity_log2, Specificity_log2, acc_lda2, Sensitivity_lda2, Specificity_lda2, acc_qda2, Sensitivity_qda2, Specificity_qda2, acc_k13, Sensitivity_k13, Specificity_k13)
+graphing_data_half
+results_half <- matrix(graphing_data_half, nrow=4,ncol=3,byrow = T)
+colnames(results_half) <- c("Accuracy", "Sensitivity", "Specificity")
+rownames(results_half) <- c("Logistic Reg", "LDA", "QDA", "KNN")
+graphing_data_half
+results_half
+```
+```{r}
+barplot(results_half, 
+        col=c("cornflowerblue","bisque4","brown","burlywood"), 
+        border="white", 
+        font.axis=2, 
+        beside=T, 
+        #legend=rownames(results_half), 
+        xlab="Logistic Reg, LDA, QDA, and KNN k = 3, 50% Data", 
+        font.lab=2)
+legend("topright", legend= rownames(results_half), fill =c("cornflowerblue","bisque4","brown","burlywood"), box.lty=0)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+

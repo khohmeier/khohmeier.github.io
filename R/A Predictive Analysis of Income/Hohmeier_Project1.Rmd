@@ -1,0 +1,210 @@
+---
+title: "Hohmeier_Project1"
+author: "Kaitlyn Hohmeier"
+date: "9/15/2020"
+output: pdf_document
+---
+  <style type="text/css">
+  
+  body{ /* Normal  */
+      font-size: 16px;
+  }
+td {  /* Table  */
+    font-size: 8px;
+}
+h1.title {
+  font-size: 38px;
+  color: DarkRed;
+}
+h1 { /* Header 1 */
+    font-size: 28px;
+  color: DarkBlue;
+}
+h2 { /* Header 2 */
+    font-size: 22px;
+  color: DarkBlue;
+}
+h3 { /* Header 3 */
+    font-size: 18px;
+  font-family: "Times New Roman", Times, serif;
+  color: DarkBlue;
+}
+code.r{ /* Code block */
+    font-size: 16px;
+}
+pre { /* Code block - determines code spacing between lines */
+    font-size: 16px;
+}
+</style>
+
+install.packages("rmarkdown")
+install.packages("tidyverse")
+install.packages("ggplot2")
+install.packages("RColorBrewer")
+install.packages("kableExtra")
+install.packages("papeR")
+install.packages("knitr")
+install.packages("epiDisplay")
+install.packages("formatR")
+
+```{r}
+library(kableExtra)
+library(knitr)
+library(ggplot2)
+library(RColorBrewer)
+library(MASS)
+library(papeR)
+library(dplyr)
+library(epiDisplay)
+library(formatR)
+```
+
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE, comment = NA, message = FALSE)
+```
+
+```{r, echo = F}
+opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+```
+## R Markdown ##
+
+```{r}
+# Initial data read-in, without "cleaning up"
+
+init <- read.csv("C://Users//Kaitlyn//Documents//Documents - Old Laptop//College Work//3rd year Junior//Semester 1//STT 450//Project//US Census Data Sets//acs2015_census_tract_data.csv")
+```
+
+```{r}
+# Cleaning up the data
+Income <- na.omit(init)
+```
+
+##Part 1: Numerical & Graphical Data Summaries ##
+###A. Numerical Variables, Numerical Summary ###
+
+```{r}
+# 5-number summary for each numerical variable, part 1
+name_set_one <- c("Income","IncPerCap","Poverty","ChildPov","Professional","Service","Office","Construction","Production")
+
+knitr::kable(xtable(papeR::summarize(Income[,name_set_one], type="numeric", caption = "Data Summary for Numerical Variables in Income Dataset")))
+
+```
+```{r}
+# 5-number summary for each numerical variable, part 2
+name_set_two <- c("Men","Women","Hispanic","White","Black","Native","Asian","Pacific")
+
+knitr::kable(xtable(papeR::summarize(Income[,name_set_two], type="numeric", caption = "Data Summary for Numerical Variables in Income Dataset")))
+
+```
+
+```{r}
+# Correlation coefficients matrix
+names <- c("Income","IncPerCap","Poverty","ChildPov","Professional","Service","Office","Construction","Production","Men","Women","Hispanic","White","Black","Native","Asian","Pacific")
+matrix <- cor(Income[,names])
+matrix
+
+write.csv(matrix, file = "Correlation Coeff Matrix.csv")
+```
+
+
+```{r, fig.height=6}
+# Heat map of numerical variables
+CORR=cor(Income[,names])
+heatmap(cor(Income[,names]))
+```
+###B. Numerical Variables, Graphical Summary ###
+
+```{r}
+#Boxplots for numerical variables
+name_set_one <- c("Income","IncPerCap")
+name_set_two <- c("M","W")
+name_set_three <- c("H","W","B","N","A","P")
+name_set_four <- c("Prof","Serv","Off","Con","Prod")
+name_set_five <- c("Pov","ChildPov")
+
+boxplot(Income$Income,Income$IncPerCap,xlab="Income within Census Tract",names=name_set_one,col="forestgreen",horizontal = T)
+boxplot(Income$Men, Income$Women, xlab = "Individuals per Gender within Census Tract", names = name_set_two, col="darkgreen", horizontal = T)
+boxplot(Income$Hispanic,Income$White,Income$Black,Income$Native,Income$Asian,Income$Pacific, xlab="Percentage within Census Tract", names = name_set_three, col="darkorange", horizontal = T)
+boxplot(Income$Professional,Income$Service,Income$Office,Income$Construction,Income$Production, xlab="Percentage within Census Tract", names = name_set_four, col="darkkhaki", horizontal = T)
+boxplot(Income$Poverty,Income$ChildPov,xlab="Percentage within Census Tract",names=name_set_five,col="darksalmon",horizontal = T)
+```
+
+```{r}
+# Dot charts for race/ethnicity data
+dotchart(Income$Hispanic, main="Percentage of Hispanic", color = "cadetblue1")
+
+```
+
+```{r}
+dotchart(Income$White, main="Percentage of White", color = "lightcoral")
+```
+
+
+```{r}
+dotchart(Income$Black, main="Percentage of Black", color = "gold")
+```
+
+```{r}
+dotchart(Income$Native, main="Percentage of Native American", color = "darkseagreen")
+```
+
+
+```{r}
+dotchart(Income$Asian, main="Percentage of Asian", color = "darkorange")
+```
+
+```{r}
+dotchart(Income$Pacific, main="Percentage of Pacific Islander", color = "darkblue")
+```
+
+
+###C. Categorical Variables, Numerical Summary ###
+
+```{r, fig.height=10,fig.width=6}
+#Creating a frequency table and corresponding sideways bar chart for number of census tracts in each state, arranged in descending order
+tab1(Income$State, sort.group = "decreasing", cum.percent = TRUE, bar.values = "None", xlab = "Number of Census Tracts", cex.names = 0.6, cex=0.6, cex.main = 0.8, main = "Number of Census Tracts Per State",col=brewer.pal(11,"PRGn"))
+```
+
+###D. Categorical Variables, Graphical Summary ###
+
+
+```{r}
+ggplot(Income, aes(x = State)) + geom_bar(fill = "slateblue", width = 0.7) + xlab("State") + ylab("Number of Observations") + theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r}
+temp <- Income[1:555,]
+ggplot(temp, aes(x = County)) + geom_bar(fill = "springgreen4", width = 0.7) + xlab("County") + ylab("Number of Observations") + theme(axis.text.x = element_text(angle = 90))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

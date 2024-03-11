@@ -1,0 +1,319 @@
+---
+title: "Hohmeier_Project2"
+author: "Kaitlyn Hohmeier"
+date: "9/25/2020"
+output: pdf_document
+---
+  <style type="text/css">
+  
+  body{ /* Normal  */
+      font-size: 16px;
+  }
+td {  /* Table  */
+    font-size: 8px;
+}
+h1.title {
+  font-size: 38px;
+  color: DarkRed;
+}
+h1 { /* Header 1 */
+    font-size: 28px;
+  color: DarkBlue;
+}
+h2 { /* Header 2 */
+    font-size: 22px;
+  color: DarkBlue;
+}
+h3 { /* Header 3 */
+    font-size: 18px;
+  font-family: "Times New Roman", Times, serif;
+  color: DarkBlue;
+}
+code.r{ /* Code block */
+    font-size: 16px;
+}
+pre { /* Code block - determines code spacing between lines */
+    font-size: 16px;
+}
+</style>
+
+install.packages("car")
+
+```{r}
+library(kableExtra)
+library(knitr)
+library(ggplot2)
+library(RColorBrewer)
+library(MASS)
+library(papeR)
+library(dplyr)
+library(epiDisplay)
+library(formatR)
+library(car)
+```
+
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE, comment = NA, message = FALSE)
+```
+
+```{r, echo = F}
+opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+```
+## R Markdown ##
+
+```{r}
+# Initial data read-in, without "cleaning up"
+
+init <- read.csv("C://Users//Kaitlyn//Documents//Documents - Old Laptop//College Work//3rd year Junior//Semester 1//STT 450//Project//US Census Data Sets//acs2015_census_tract_data.csv")
+```
+
+```{r}
+# Cleaning up the data
+Income <- na.omit(init)
+```
+
+### Section 3: Modeling and Model Selection ###
+
+### Step 1: Linear Models ###
+```{r}
+#Income versus gender - linear
+lm.fit1a=lm(Income~Men+Women,data=Income)
+summary(lm.fit1a)
+```
+
+```{r}
+#Income versus race/ethnicity - linear
+lm.fit2a=lm(Income~Hispanic+White+Black+Native+Asian+Pacific,data=Income)
+summary(lm.fit2a)
+```
+
+```{r}
+#Income versus type of employment - linear
+lm.fit3a=lm(Income~Professional+Service+Office+Construction+Production,data=Income)
+summary(lm.fit3a)
+```
+
+```{r}
+#Income versus poverty - linear
+lm.fit4a=lm(Income~Poverty+ChildPov,data=Income)
+summary(lm.fit4a)
+```
+
+```{r}
+#Plots for Income versus Gender - linear
+par(mfrow=c(2,2))
+plot(lm.fit1a, col="green")
+```
+
+```{r}
+#Plots for income versus race/ethnicity - linear
+par(mfrow=c(2,2))
+plot(lm.fit2a, col="deepskyblue")
+```
+
+```{r}
+#Plots for income versus type of employment - linear
+par(mfrow=c(2,2))
+plot(lm.fit3a,col="darkslateblue")
+```
+
+```{r}
+#plots for income versus poverty levels - linear
+par(mfrow=c(2,2))
+plot(lm.fit4a,col="darkorange")
+```
+
+```{r}
+anova(lm.fit1a,lm.fit2a,lm.fit3a,lm.fit4a)
+```
+###Step 2: Models with Interaction Terms###
+
+```{r}
+#Income versus gender - linear with interaction terms
+lm.fit1b=lm(Income~Men*Women,data=Income)
+summary(lm.fit1b)
+```
+
+```{r}
+#Plots for Income versus Gender - linear with interaction terms
+par(mfrow=c(2,2))
+plot(lm.fit1b, col="green")
+```
+
+
+```{r}
+#Income versus race/ethnicity - linear with interaction terms
+lm.fit2b=lm(Income~Hispanic*White*Black*Native*Asian*Pacific,data=Income)
+summary(lm.fit2b)
+```
+
+```{r}
+#Plots for income versus race - linear with interaction terms
+par(mfrow=c(2,2))
+plot(lm.fit2b, col="deepskyblue")
+```
+
+```{r}
+#Income against type of employment - linear with interaction terms
+lm.fit3b=lm(Income~Professional*Service*Office*Construction*Production,data=Income)
+summary(lm.fit3b)
+```
+
+```{r}
+#Plots for income versus type of employment - linear with interaction terms
+par(mfrow=c(2,2))
+plot(lm.fit3b,col="darkslateblue")
+```
+
+```{r}
+#Income versus poverty - linear with interaction terms
+lm.fit4b=lm(Income~Poverty*ChildPov,data=Income)
+summary(lm.fit4b)
+```
+
+```{r}
+#plots for income versus poverty levels - linear with interaction terms
+par(mfrow=c(2,2))
+plot(lm.fit4b,col="darkorange")
+```
+
+```{r}
+#ANOVA table for all models - linear and linear with interaction terms
+anova(lm.fit1a,lm.fit2a,lm.fit3a,lm.fit4a, lm.fit1b, lm.fit2b, lm.fit3b, lm.fit4b)
+```
+
+###Step 3: Quadratic and Polynomial Models###
+
+```{r}
+#Income versus gender - quadratic
+lm.fit1c = lm(Income~Men+Women+I(Men^2)+I(Women^2),data=Income)
+summary(lm.fit1c)
+```
+```{r}
+#Plots for Income versus Gender - quadratic
+par(mfrow=c(2,2))
+plot(lm.fit1c, col="green")
+```
+
+```{r}
+#Income versus race/ethnicity - quadratic
+lm.fit2c=lm(Income~Hispanic+White+Black+Native+Asian+Pacific+I(Hispanic^2)+I(White^2)+I(Black^2)+I(Native^2)+I(Asian^2)+I(Pacific^2), data = Income)
+summary(lm.fit2c)
+```
+
+```{r}
+#Income versus race/ethnicity - quadratic
+par(mfrow=c(2,2))
+plot(lm.fit2c, col="deepskyblue")
+```
+
+```{r}
+#Income versus type of employment - polynomial
+lm.fit3c=lm(Income~Professional+Service+Office+Construction+Production+I(Professional^2)+I(Service^2)+I(Office^2)+I(Construction^2)+I(Production^2)+I(Professional^3)+I(Service^3)+I(Office^3)+I(Construction^3)+I(Production^3),data=Income)
+summary(lm.fit3c)
+```
+
+```{r}
+#Plots for income versus type of employment - polynomial
+par(mfrow=c(2,2))
+plot(lm.fit3c,col="darkslateblue")
+```
+
+```{r}
+#Income versus poverty levels - quadratic
+lm.fit4c=lm(Income~Poverty+ChildPov+I(Poverty^2)+I(ChildPov^2),data=Income)
+summary(lm.fit4c)
+```
+
+```{r}
+#plots for income versus poverty levels - quadratic
+par(mfrow=c(2,2))
+plot(lm.fit4c,col="darkorange")
+```
+
+```{r}
+#ANOVA table for all models
+anova(lm.fit1a,lm.fit2a,lm.fit3a,lm.fit4a, lm.fit1b, lm.fit2b, lm.fit3b, lm.fit4b,lm.fit1c,lm.fit2c,lm.fit3c,lm.fit4c)
+```
+
+###Step 4: Log transformations###
+
+```{r}
+#Log model for income versus gender
+lm_log1.model = lm(log1p(Income) ~ log1p(Men) + log1p(Women), data = Income)
+summary(lm_log1.model)
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(lm_log1.model, col = "green")
+```
+
+```{r}
+#Income versus race/ethnicity
+lm_log2.model = lm(log1p(Income)~log1p(Hispanic)+log1p(White)+log1p(Black)+log1p(Native)+log1p(Asian)+log1p(Pacific),data=Income)
+summary(lm_log2.model)
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(lm_log2.model, col="deepskyblue")
+```
+
+```{r}
+#Log model for income versus type of employment
+lm_log3.model=lm(log1p(Income)~log1p(Professional)+log1p(Service)+log1p(Office)+log1p(Construction)+log1p(Production),data=Income)
+summary(lm_log3.model)
+```
+
+```{r}
+#Plots for income versus type of employment
+par(mfrow=c(2,2))
+plot(lm_log3.model,col="darkslateblue")
+```
+
+```{r}
+lm_log4.model = lm(log1p(Income)~log1p(Poverty)+log1p(ChildPov), data = Income)
+summary(lm_log4.model)
+```
+
+```{r}
+#plots for income versus poverty levels
+par(mfrow=c(2,2))
+plot(lm_log4.model,col="darkorange")
+```
+
+```{r}
+anova(lm_log1.model, lm_log2.model, lm_log3.model, lm_log4.model)
+```
+
+```{r}
+#Log quadratic model for income versus type of employment
+log_quad=lm(log1p(Income)~log1p(Professional)+log1p(Service)+log1p(Office)+log1p(Construction)+log1p(Production) + I(log1p(Professional)^2) + I(log1p(Service)^2) + I(log1p(Office)^2) + I(log1p(Construction)^2)  + I(log1p(Production)^2),data=Income)
+summary(log_quad)
+```
+
+```{r}
+#plots for income versus type of employment log quad model
+par(mfrow=c(2,2))
+plot(log_quad,col="darkslateblue")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
