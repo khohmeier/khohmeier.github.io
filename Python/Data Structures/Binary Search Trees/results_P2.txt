@@ -1,0 +1,5 @@
+PART II
+Opened ssn.txt - begin storing SSNs into a BST
+Number of nodes in binary search tree: 999491
+Height of binary search tree: 49
+Number of comparisons needed to perform a search for a randomly selected SSN: 26
