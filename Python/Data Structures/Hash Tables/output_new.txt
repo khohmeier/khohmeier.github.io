@@ -1,0 +1,59 @@
+Program start
+Hash table details: 31 slots, 0 occupied, load factor = 0.0
+Start reading words for dictionary.txt file
+	22 words read. Hash Table expansion needed.
+		Hash Table details, before expansion: 31 slots, 22 occupied, load factor = 0.7096774193548387
+		Hash Table details, after expansion: 67 slots, 22 occupied, load factor = 0.3283582089552239
+	47 words read. Hash Table expansion needed.
+		Hash Table details, before expansion: 67 slots, 47 occupied, load factor = 0.7014925373134329
+		Hash Table details, after expansion: 137 slots, 47 occupied, load factor = 0.34306569343065696
+	96 words read. Hash Table expansion needed.
+		Hash Table details, before expansion: 137 slots, 96 occupied, load factor = 0.7007299270072993
+		Hash Table details, after expansion: 277 slots, 96 occupied, load factor = 0.34657039711191334
+	194 words read. Hash Table expansion needed.
+		Hash Table details, before expansion: 277 slots, 194 occupied, load factor = 0.7003610108303249
+		Hash Table details, after expansion: 557 slots, 194 occupied, load factor = 0.348294434470377
+	390 words read. Hash Table expansion needed.
+		Hash Table details, before expansion: 557 slots, 390 occupied, load factor = 0.7001795332136446
+		Hash Table details, after expansion: 1117 slots, 390 occupied, load factor = 0.34914950760966873
+	783 words read. Hash Table expansion needed.
+		Hash Table details, before expansion: 1117 slots, 782 occupied, load factor = 0.7000895255147717
+		Hash Table details, after expansion: 2237 slots, 782 occupied, load factor = 0.34957532409476977
+	1568 words read. Hash Table expansion needed.
+		Hash Table details, before expansion: 2237 slots, 1566 occupied, load factor = 0.7000447027268664
+		Hash Table details, after expansion: 4479 slots, 1566 occupied, load factor = 0.34963161419959815
+	3140 words read. Hash Table expansion needed.
+		Hash Table details, before expansion: 4479 slots, 3136 occupied, load factor = 0.700156284885019
+		Hash Table details, after expansion: 8963 slots, 3136 occupied, load factor = 0.3498828517237532
+	6302 words read. Hash Table expansion needed.
+		Hash Table details, before expansion: 8963 slots, 6275 occupied, load factor = 0.7001004128082116
+		Hash Table details, after expansion: 17929 slots, 6275 occupied, load factor = 0.3499916336661275
+	12668 words read. Hash Table expansion needed.
+		Hash Table details, before expansion: 17929 slots, 12551 occupied, load factor = 0.700039042891405
+		Hash Table details, after expansion: 35863 slots, 12551 occupied, load factor = 0.3499707219139503
+	25630 words read. Hash Table expansion needed.
+		Hash Table details, before expansion: 35863 slots, 25105 occupied, load factor = 0.7000250955023283
+		Hash Table details, after expansion: 71735 slots, 25105 occupied, load factor = 0.34996863455774724
+	52278 words read. Hash Table expansion needed.
+		Hash Table details, before expansion: 71735 slots, 50215 occupied, load factor = 0.7000069700982784
+		Hash Table details, after expansion: 143475 slots, 50215 occupied, load factor = 0.34999128768078064
+	108502 words read. Hash Table expansion needed.
+		Hash Table details, before expansion: 143475 slots, 100433 occupied, load factor = 0.7000034849276877
+		Hash Table details, after expansion: 286955 slots, 100433 occupied, load factor = 0.3499956439162935
+End of reading words from dictionary.txt
+Hash Table details: 286955 slots, 163632 occupied, load factor = 0.570235751250196
+Number of unique keys inserted into Hash Table = 163632
+Number of key conflicts encountered = 131092
+Start reading keys from file example_input.txt
+	qiewuro 0 - this annagram search took 0.06085940000002665 seconds
+	ssrab 1: brass - this annagram search took 0.003957000000013977 seconds
+	oflg 2: flog golf - this annagram search took 0.002332899999998972 seconds
+	equiye 0 - this annagram search took 0.06211259999997765 seconds
+	rpat 5: prat part rapt tarp trap - this annagram search took 0.0015169000000128108 seconds
+	opst 6: spot tops pots post opts stop - this annagram search took 0.0015951999999970212 seconds
+	aserp 13: rapes spear asper pears presa spare prase pares spaer reaps parse apres apers - this annagram search took 0.0031791000000112035 seconds
+	aelst 12: slate stela taels leats salet stale setal tales tesla steal teals least - this annagram search took 0.0029265000000009422 seconds
+	aegilnrt 6: triangle tanglier alerting altering relating integral - this annagram search took 0.016802100000006703 seconds
+	aelrst 12: alerts tarsel slater talers ratels salter estral stelar alters laster artels staler - this annagram search took 0.00787770000005139 seconds
+End reading keys from file example_input.txt
+Program End
