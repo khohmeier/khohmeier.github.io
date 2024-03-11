@@ -1,5 +1,4 @@
-# Kaitlyn Hohmeier
-__author__ = 'narayans'
+# K. Hohmeier
 from gameboard import GameBoard
 from stack import Stack
 import time
